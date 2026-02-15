@@ -1,0 +1,27 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const connectDB = require('./config/db');
+
+// Kết nối database
+connectDB();
+
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+const userRoutes = require('./routes/userRoutes');
+app.use('/api/users', userRoutes);
+
+// API test thử
+app.get('/', (req, res) => {
+  res.send('Healthmate API đang chạy thành công! 🚀');
+});
+
+// Lắng nghe cổng
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server đang chạy tại http://localhost:${PORT}`);
+});
