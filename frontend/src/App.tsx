@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AiCoachPage from './pages/AiCoachPage';
 import FoodCatalogPage from './pages/FoodCatalogPage';
 import MealPlannerPage from './pages/MealPlannerPage';
+import AdminFoodFormPage from './pages/AdminFoodFormPage';
 
 export default function App() {
   return (
@@ -18,6 +19,9 @@ export default function App() {
 
         {/* Meal Planner */}
         <Route path="/meal-planner" element={<MealPlannerPage />} />
+
+        {/* Admin */}
+        <Route path="/admin/foods/new" element={<AdminFoodFormPage />} />
         
         {/* Nơi thêm các đường dẫn khác sau này */}
         {/* <Route path="/admin" element={<AdminDashboard />} /> */}
