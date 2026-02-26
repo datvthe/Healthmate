@@ -1,29 +1,33 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const connectDB = require('./config/db');
-
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const connectDB = require("./config/db");
+const workoutRoutes = require("./routes/workoutRoutes");
+const workoutCategoryRoutes = require("./routes/workoutCategoryRoutes");
 // Kết nối database
 connectDB();
 
 const app = express();
-
 // Middleware
-app.use(cors({
-    origin: 'http://localhost:5173', 
-    credentials: true
-}));
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  }),
+);
 app.use(express.json());
+app.use("/api/workouts", workoutRoutes);
+app.use("/api/workout-categories", workoutCategoryRoutes);
 
-const userRoutes = require('./routes/userRoutes');
-app.use('/api/users', userRoutes);
+const userRoutes = require("./routes/userRoutes");
+app.use("/api/users", userRoutes);
 
-const chatRoutes = require('./routes/chatRoutes');
-app.use('/api/chat', chatRoutes);
+const chatRoutes = require("./routes/chatRoutes");
+app.use("/api/chat", chatRoutes);
 
 // API test thử
-app.get('/', (req, res) => {
-  res.send('Healthmate API đang chạy thành công! 🚀');
+app.get("/", (req, res) => {
+  res.send("Healthmate API đang chạy thành công! 🚀");
 });
 
 const PORT = process.env.PORT || 8000;
