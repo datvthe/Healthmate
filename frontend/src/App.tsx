@@ -3,6 +3,7 @@ import AiCoachPage from './pages/AiCoachPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
+import HomePage from './pages/HomePage';
 // Sau này có trang Admin thì bạn import ở đây, vd: import AdminDashboard from './pages/AdminDashboard';
 
 export default function App() {
@@ -10,7 +11,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         {/* Đường dẫn mặc định (trang chủ) - điều hướng sang trang đăng nhập */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Navigate to="/homepage" replace />} />
 
         {/* Auth */}
         <Route path="/login" element={<LoginPage />} />
@@ -24,6 +25,7 @@ export default function App() {
 
         {/* Nơi thêm các đường dẫn khác sau này */}
         {/* <Route path="/admin" element={<AdminDashboard />} /> */}
+        <Route path='/homepage' element={<HomePage/>} />
       </Routes>
     </BrowserRouter>
   );
