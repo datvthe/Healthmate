@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AiCoachPage from './pages/AiCoachPage';
+import WorkoutsPage from './pages/WorkoutsPage'; // Import trang WorkoutsPage
 // Sau này có trang Admin thì bạn import ở đây, vd: import AdminDashboard from './pages/AdminDashboard';
 
 export default function App() {
@@ -13,6 +14,8 @@ export default function App() {
         <Route path="/aicoach" element={<AiCoachPage />} />
         
         {/* Nơi thêm các đường dẫn khác sau này */}
+         {/* Route mới cho Workouts */}
+        <Route path="/workouts" element={<WorkoutsPage />} />
         {/* <Route path="/admin" element={<AdminDashboard />} /> */}
       </Routes>
     </BrowserRouter>

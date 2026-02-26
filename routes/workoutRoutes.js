@@ -7,7 +7,7 @@ router.post("/", async (req, res) => {
   try {
     const workout = new Workout(req.body);
     await workout.save();
-    console.log("BODY:", req.body);
+
     res.status(201).json(workout);
   } catch (err) {
     res.status(500).json({ error: err.message });
