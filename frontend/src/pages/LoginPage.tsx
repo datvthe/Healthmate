@@ -41,7 +41,7 @@ const LoginPage = () => {
       localStorage.setItem('user', JSON.stringify(data.user));
 
       // Chuyển đến trang hồ sơ cá nhân (hoặc trang AI Coach tùy flow)
-      navigate('/profile');
+      navigate('/homepage');
     } catch (err) {
       setError('Có lỗi xảy ra khi kết nối tới server.');
     } finally {
