@@ -39,3 +39,7 @@ export const createWorkout = async (data: any) => {
 
   return res.json();
 };
+export const getWorkoutById = async (id: string) => {
+  const res = await fetch(`http://localhost:8000/api/workouts/${id}`);
+  return res.json();
+};

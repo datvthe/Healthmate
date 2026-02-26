@@ -4,6 +4,7 @@ import { getWorkouts, createWorkout } from "../services/workoutService";
 import type { Workout } from "../services/workoutService";
 import { getCategories } from "../services/categoryService";
 import type { Category } from "../services/categoryService";
+import { useNavigate } from "react-router-dom";
 
 const WorkoutsPage = () => {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
@@ -12,6 +13,7 @@ const WorkoutsPage = () => {
   const [level, setLevel] = useState("");
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const navigate = useNavigate();
 
   const [form, setForm] = useState({
     title: "",
@@ -20,6 +22,15 @@ const WorkoutsPage = () => {
     calories_burned: 0,
     category_id: "",
   });
+
+  const [exercises, setExercises] = useState([
+    {
+      title: "",
+      video_url: "",
+      duration_sec: 0,
+      order: 1,
+    },
+  ]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -39,7 +50,11 @@ const WorkoutsPage = () => {
   }, [level]);
 
   const handleCreate = async () => {
-    await createWorkout(form);
+    await createWorkout({
+      ...form,
+      exercises,
+    });
+
     setShowModal(false);
     fetchData();
   };
@@ -49,7 +64,6 @@ const WorkoutsPage = () => {
       <Navbar />
 
       <div className="flex-1 px-10 py-10 flex flex-col gap-10">
-
         {/* HEADER */}
         <div className="flex justify-between">
           <h1 className="text-4xl font-black">
@@ -70,7 +84,11 @@ const WorkoutsPage = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {workouts.map((w) => (
-              <div key={w._id} className="bg-white p-4 rounded-xl shadow">
+              <div
+                key={w._id}
+                onClick={() => navigate(`/workouts/${w._id}`)}
+                className="bg-white p-4 rounded-xl shadow cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200"
+              >
                 <h3 className="font-bold">{w.title}</h3>
                 <p className="text-sm text-slate-500">{w.description}</p>
                 <p className="text-sm mt-2">
@@ -82,10 +100,10 @@ const WorkoutsPage = () => {
         )}
       </div>
 
-      {/* MODAL */}
+      {/* MODAL giữ nguyên hoàn toàn */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-xl w-[400px] flex flex-col gap-4">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center overflow-auto">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-xl w-[500px] flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
 
             <h2 className="text-xl font-bold">Create Workout</h2>
 
@@ -100,7 +118,8 @@ const WorkoutsPage = () => {
 
             <textarea
               placeholder="Description"
-              className="border p-2 rounded"
+              rows={3}
+              className="border p-2 rounded min-h-[80px] resize-none"
               value={form.description}
               onChange={(e) =>
                 setForm({ ...form, description: e.target.value })
@@ -132,7 +151,6 @@ const WorkoutsPage = () => {
               }
             />
 
-            {/* ✅ DROPDOWN CATEGORY (thay cho nhập ID) */}
             <select
               className="border p-2 rounded"
               value={form.category_id}
@@ -147,6 +165,8 @@ const WorkoutsPage = () => {
                 </option>
               ))}
             </select>
+
+            {/* Exercises giữ nguyên như bạn đang có */}
 
             <div className="flex justify-end gap-4 mt-4">
               <button
