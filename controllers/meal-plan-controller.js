@@ -1,19 +1,16 @@
 const MealPlan = require('../models/MealPlan');
 const Food = require('../models/Food');
 
-// Helper: Tính tổng calo của meal plan
 const recalculateTotalCalories = (items) => {
   return items.reduce((total, item) => total + (item.calories || 0), 0);
 };
 
-// Helper: Parse date string thành Date object (chỉ lấy ngày, bỏ giờ)
 const parseDate = (dateStr) => {
   const date = new Date(dateStr);
   date.setHours(0, 0, 0, 0);
   return date;
 };
 
-// [GET] Lấy meal plan của user theo ngày
 const getMealPlanByDate = async (req, res) => {
   try {
     const { date } = req.params;
@@ -24,19 +21,10 @@ const getMealPlanByDate = async (req, res) => {
     }
 
     const targetDate = parseDate(date);
-
-    const mealPlan = await MealPlan.findOne({
-      user_id: userId,
-      date: targetDate
-    });
+    const mealPlan = await MealPlan.findOne({ user_id: userId, date: targetDate });
 
     if (!mealPlan) {
-      return res.json({
-        user_id: userId,
-        date: targetDate,
-        total_calories: 0,
-        items: []
-      });
+      return res.json({ user_id: userId, date: targetDate, total_calories: 0, items: [] });
     }
 
     res.json(mealPlan);
@@ -45,7 +33,6 @@ const getMealPlanByDate = async (req, res) => {
   }
 };
 
-// [POST] Thêm món ăn vào meal plan
 const addFoodToMealPlan = async (req, res) => {
   try {
     const { date } = req.params;
@@ -60,54 +47,30 @@ const addFoodToMealPlan = async (req, res) => {
       return res.status(400).json({ message: 'Vui lòng cung cấp food_id và quantity hợp lệ' });
     }
 
-    // Lấy thông tin món ăn
     const food = await Food.findById(food_id);
     if (!food) {
       return res.status(404).json({ message: 'Không tìm thấy món ăn' });
     }
 
-    // Tính calo: (calories per 100g * quantity) / 100
     const itemCalories = Math.round((food.calories * quantity) / 100);
-
     const targetDate = parseDate(date);
 
-    // Tìm hoặc tạo meal plan
-    let mealPlan = await MealPlan.findOne({
-      user_id: userId,
-      date: targetDate
-    });
+    let mealPlan = await MealPlan.findOne({ user_id: userId, date: targetDate });
 
     if (!mealPlan) {
-      mealPlan = new MealPlan({
-        user_id: userId,
-        date: targetDate,
-        items: []
-      });
+      mealPlan = new MealPlan({ user_id: userId, date: targetDate, items: [] });
     }
 
-    // Thêm item mới
-    mealPlan.items.push({
-      food_id: food._id,
-      name: food.name,
-      quantity,
-      calories: itemCalories
-    });
-
-    // Cập nhật tổng calo
+    mealPlan.items.push({ food_id: food._id, name: food.name, quantity, calories: itemCalories });
     mealPlan.total_calories = recalculateTotalCalories(mealPlan.items);
 
     await mealPlan.save();
-
-    res.status(201).json({
-      message: 'Thêm món ăn thành công',
-      mealPlan
-    });
+    res.status(201).json({ message: 'Thêm món ăn thành công', mealPlan });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
   }
 };
 
-// [DELETE] Xóa món ăn khỏi meal plan
 const removeFoodFromMealPlan = async (req, res) => {
   try {
     const { date, itemId } = req.params;
@@ -118,20 +81,13 @@ const removeFoodFromMealPlan = async (req, res) => {
     }
 
     const targetDate = parseDate(date);
-
-    const mealPlan = await MealPlan.findOne({
-      user_id: userId,
-      date: targetDate
-    });
+    const mealPlan = await MealPlan.findOne({ user_id: userId, date: targetDate });
 
     if (!mealPlan) {
       return res.status(404).json({ message: 'Không tìm thấy thực đơn cho ngày này' });
     }
 
-    const itemIndex = mealPlan.items.findIndex(
-      item => item._id.toString() === itemId
-    );
-
+    const itemIndex = mealPlan.items.findIndex(item => item._id.toString() === itemId);
     if (itemIndex === -1) {
       return res.status(404).json({ message: 'Không tìm thấy món ăn trong thực đơn' });
     }
@@ -140,17 +96,12 @@ const removeFoodFromMealPlan = async (req, res) => {
     mealPlan.total_calories = recalculateTotalCalories(mealPlan.items);
 
     await mealPlan.save();
-
-    res.json({
-      message: 'Xóa món ăn thành công',
-      mealPlan
-    });
+    res.json({ message: 'Xóa món ăn thành công', mealPlan });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
   }
 };
 
-// [PUT] Cập nhật số lượng món ăn
 const updateFoodQuantity = async (req, res) => {
   try {
     const { date, itemId } = req.params;
@@ -166,42 +117,28 @@ const updateFoodQuantity = async (req, res) => {
     }
 
     const targetDate = parseDate(date);
-
-    const mealPlan = await MealPlan.findOne({
-      user_id: userId,
-      date: targetDate
-    });
+    const mealPlan = await MealPlan.findOne({ user_id: userId, date: targetDate });
 
     if (!mealPlan) {
       return res.status(404).json({ message: 'Không tìm thấy thực đơn cho ngày này' });
     }
 
-    const item = mealPlan.items.find(
-      item => item._id.toString() === itemId
-    );
-
+    const item = mealPlan.items.find(item => item._id.toString() === itemId);
     if (!item) {
       return res.status(404).json({ message: 'Không tìm thấy món ăn trong thực đơn' });
     }
 
-    // Lấy thông tin food để tính lại calo
     const food = await Food.findById(item.food_id);
     if (!food) {
       return res.status(404).json({ message: 'Không tìm thấy thông tin món ăn gốc' });
     }
 
-    // Update quantity và tính lại calo
     item.quantity = quantity;
     item.calories = Math.round((food.calories * quantity) / 100);
-
     mealPlan.total_calories = recalculateTotalCalories(mealPlan.items);
 
     await mealPlan.save();
-
-    res.json({
-      message: 'Cập nhật số lượng thành công',
-      mealPlan
-    });
+    res.json({ message: 'Cập nhật số lượng thành công', mealPlan });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
   }
