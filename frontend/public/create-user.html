@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tạo User Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 10px 0; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        button { background: #13ec5b; color: black; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        input { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; }
+        pre { background: #f0f0f0; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>👤 Tạo User Test</h1>
+    
+    <div class="container">
+        <h2>Đăng Ký User Mới</h2>
+        <input type="email" id="email" placeholder="Email" value="testuser@example.com">
+        <input type="text" id="fullname" placeholder="Họ và Tên" value="Test User">
+        <input type="password" id="password" placeholder="Password" value="password123">
+        <button onclick="registerUser()">📝 Đăng Ký</button>
+        <div id="result"></div>
+    </div>
+
+    <div class="container">
+        <h2>Login</h2>
+        <input type="email" id="loginEmail" placeholder="Email" value="testuser@example.com">
+        <input type="password" id="loginPassword" placeholder="Password" value="password123">
+        <button onclick="loginUser()">🔑 Login</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Mở App</h2>
+        <button onclick="openApp()">🚀 Mở Healthmate App</button>
+        <button onclick="openWorkoutManager()">🏋️ Mở Workout Manager</button>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+
+        function showResult(id, message, isError = false) {
+            document.getElementById(id).innerHTML = `<div class="${isError ? 'error' : 'success'}">${message}</div>`;
+        }
+
+        function showJSON(id, data) {
+            document.getElementById(id).innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+
+        async function registerUser() {
+            try {
+                const email = document.getElementById('email').value;
+                const fullname = document.getElementById('fullname').value;
+                const password = document.getElementById('password').value;
+                
+                showResult('result', '🔄 Đang đăng ký...');
+                
+                const response = await fetch(`${API_BASE}/users/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email, 
+                        password, 
+                        profile: { 
+                            full_name: fullname 
+                        } 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('result', '✅ Đăng ký thành công!');
+                    setTimeout(() => loginUser(), 1000);
+                } else {
+                    showResult('result', `❌ Đăng ký thất bại: ${data.message}`, true);
+                }
+                
+                showJSON('result', data);
+            } catch (error) {
+                showResult('result', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function loginUser() {
+            try {
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                
+                showResult('loginResult', '🔄 Đang login...');
+                
+                const response = await fetch(`${API_BASE}/users/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    localStorage.setItem('token', data.token);
+                    showResult('loginResult', '✅ Login thành công! Token đã lưu.');
+                } else {
+                    showResult('loginResult', `❌ Login thất bại: ${data.message}`, true);
+                }
+                
+                showJSON('loginResult', data);
+            } catch (error) {
+                showResult('loginResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        function openApp() {
+            window.open('http://localhost:5175/login', '_blank');
+        }
+
+        function openWorkoutManager() {
+            window.open('http://localhost:5175/workouts', '_blank');
+        }
+
+        // Auto-check backend
+        window.onload = function() {
+            fetch(`${API_BASE}/users/login`)
+                .then(response => {
+                    if (response.ok) {
+                        showResult('result', '✅ Backend đang chạy!');
+                    } else {
+                        showResult('result', '❌ Backend có vấn đề', true);
+                    }
+                })
+                .catch(error => {
+                    showResult('result', `❌ Backend không chạy: ${error.message}`, true);
+                });
+        };
+    </script>
+</body>
+</html>

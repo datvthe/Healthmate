@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tạo Sample Workouts</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 10px 0; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        button { background: #13ec5b; color: black; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        pre { background: #f0f0f0; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🏋️ Tạo Sample Workouts</h1>
+    <p>Tạo các bài tập mẫu để test Workout Manager</p>
+    
+    <div class="container">
+        <h2>Step 1: Login</h2>
+        <input type="email" id="email" placeholder="Email" value="testuser@example.com" style="width: 100%; padding: 8px; margin: 5px 0;">
+        <input type="password" id="password" placeholder="Password" value="password123" style="width: 100%; padding: 8px; margin: 5px 0;">
+        <button onclick="login()">🔑 Login</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 2: Tạo Workouts</h2>
+        <button onclick="createSampleWorkouts()">🎲 Tạo 10 Sample Workouts</button>
+        <button onclick="checkWorkouts()">📋 Kiểm Tra Workouts</button>
+        <div id="workoutResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 3: Test Workout Manager</h2>
+        <button onclick="openWorkoutManager()">🏋️ Mở Workout Manager</button>
+        <button onclick="openDashboard()">📊 Mở Dashboard</button>
+        <div id="testResult"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let authToken = '';
+
+        function showResult(id, message, isError = false) {
+            document.getElementById(id).innerHTML = `<div class="${isError ? 'error' : 'success'}">${message}</div>`;
+        }
+
+        function showJSON(id, data) {
+            document.getElementById(id).innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+
+        async function login() {
+            try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                const response = await fetch(`${API_BASE}/users/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.token;
+                    localStorage.setItem('test_token', authToken);
+                    showResult('loginResult', '✅ Login successful! Token saved.');
+                } else {
+                    showResult('loginResult', `❌ Login failed: ${data.message}`, true);
+                }
+                
+                showJSON('loginResult', data);
+            } catch (error) {
+                showResult('loginResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function createSampleWorkouts() {
+            try {
+                if (!authToken) {
+                    const savedToken = localStorage.getItem('test_token');
+                    if (savedToken) {
+                        authToken = savedToken;
+                    } else {
+                        showResult('workoutResult', '❌ Please login first!', true);
+                        return;
+                    }
+                }
+
+                showResult('workoutResult', '🔄 Đang tạo sample workouts...');
+
+                const sampleWorkouts = [
+                    {
+                        name: "Push Day",
+                        description: "Tập ngực, vai, tay trước",
+                        category: "Strength",
+                        duration: 45,
+                        calories: 350,
+                        difficulty: "Intermediate"
+                    },
+                    {
+                        name: "Pull Day", 
+                        description: "Tập lưng, xô, tay sau",
+                        category: "Strength",
+                        duration: 40,
+                        calories: 280,
+                        difficulty: "Intermediate"
+                    },
+                    {
+                        name: "Leg Day",
+                        description: "Tập chân, đùi, bắp chân",
+                        category: "Strength", 
+                        duration: 50,
+                        calories: 400,
+                        difficulty: "Advanced"
+                    },
+                    {
+                        name: "Cardio HIIT",
+                        description: "Bài tập cardio cường độ cao",
+                        category: "Cardio",
+                        duration: 30,
+                        calories: 350,
+                        difficulty: "Advanced"
+                    },
+                    {
+                        name: "Yoga Flow",
+                        description: "Bài tập yoga thư giãn",
+                        category: "Flexibility",
+                        duration: 60,
+                        calories: 200,
+                        difficulty: "Beginner"
+                    },
+                    {
+                        name: "Core Workout",
+                        description: "Tập cơ bụng và core",
+                        category: "Strength",
+                        duration: 25,
+                        calories: 180,
+                        difficulty: "Beginner"
+                    },
+                    {
+                        name: "Full Body Burn",
+                        description: "Bài tập toàn thân",
+                        category: "Cardio",
+                        duration: 35,
+                        calories: 300,
+                        difficulty: "Intermediate"
+                    },
+                    {
+                        name: "Stretching",
+                        description: "Giãn cơ và phục hồi",
+                        category: "Recovery",
+                        duration: 20,
+                        calories: 100,
+                        difficulty: "Beginner"
+                    },
+                    {
+                        name: "Boxing Cardio",
+                        description: "Boxing và cardio",
+                        category: "Combat",
+                        duration: 40,
+                        calories: 380,
+                        difficulty: "Advanced"
+                    },
+                    {
+                        name: "Swim Workout",
+                        description: "Bơi lội toàn thân",
+                        category: "Cardio",
+                        duration: 45,
+                        calories: 420,
+                        difficulty: "Intermediate"
+                    }
+                ];
+
+                let successCount = 0;
+                let errorCount = 0;
+                const results = [];
+
+                for (const workout of sampleWorkouts) {
+                    try {
+                        const response = await fetch(`${API_BASE}/workouts`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${authToken}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(workout)
+                        });
+
+                        const data = await response.json();
+                        results.push({ workout: workout.name, success: response.ok, data });
+
+                        if (response.ok) {
+                            successCount++;
+                        } else {
+                            errorCount++;
+                        }
+                    } catch (error) {
+                        results.push({ workout: workout.name, error: error.message });
+                        errorCount++;
+                    }
+                }
+
+                showResult('workoutResult', `✅ Đã tạo ${successCount} workouts thành công! ${errorCount} lỗi.`);
+                showJSON('workoutResult', results);
+
+            } catch (error) {
+                showResult('workoutResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function checkWorkouts() {
+            try {
+                if (!authToken) {
+                    authToken = localStorage.getItem('test_token');
+                }
+
+                const response = await fetch(`${API_BASE}/workouts`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('workoutResult', `✅ Found ${data.length} workouts in database!`);
+                    showJSON('workoutResult', data);
+                } else {
+                    showResult('workoutResult', `❌ Error: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('workoutResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        function openWorkoutManager() {
+            window.open('http://localhost:5173/workouts', '_blank');
+        }
+
+        function openDashboard() {
+            window.open('http://localhost:5173/dashboard', '_blank');
+        }
+
+        // Auto-check token on load
+        window.onload = function() {
+            const savedToken = localStorage.getItem('test_token');
+            if (savedToken) {
+                authToken = savedToken;
+                showResult('loginResult', '✅ Token found from previous session');
+            }
+        };
+    </script>
+</body>
+</html>

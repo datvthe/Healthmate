@@ -1,4 +1,4 @@
-import React from 'react';
+import { Link } from 'react-router-dom';
 
 const Navbar = () => {
   return (
@@ -30,8 +30,8 @@ const Navbar = () => {
       <div className="flex flex-1 justify-end gap-8">
         {/* Navigation Links */}
         <nav className="flex items-center gap-9">
-          <a className="text-slate-600 dark:text-slate-400 hover:text-primary text-sm font-medium leading-normal transition-colors" href="/dashboard">Dashboard</a>
-          <a className="text-primary text-sm font-medium leading-normal" href="/workouts">Workouts</a>
+          <Link to="/dashboard" className="text-slate-600 dark:text-slate-400 hover:text-primary text-sm font-medium leading-normal transition-colors">Dashboard</Link>
+          <Link to="/workouts" className="text-primary text-sm font-medium leading-normal">Workouts</Link>
           <a className="text-slate-600 dark:text-slate-400 hover:text-primary text-sm font-medium leading-normal transition-colors" href="/nutrition">Nutrition</a>
           <a className="text-slate-600 dark:text-slate-400 hover:text-primary text-sm font-medium leading-normal transition-colors" href="/community">Community</a>
           <a className="text-slate-600 dark:text-slate-400 hover:text-primary text-sm font-medium leading-normal transition-colors" href="/progress">Progress</a>
