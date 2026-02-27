@@ -53,6 +53,24 @@ const ProfilePage = () => {
       return;
     }
 
+    const isGoogle = localStorage.getItem('isGoogleLogin');
+
+    // Nếu đăng nhập bằng Google (Mock), KHÔNG gọi API Backend để tránh bị lỗi 401
+    if (isGoogle === 'true') {
+      const localUser = localStorage.getItem('user');
+      if (localUser) {
+        const parsedUser = JSON.parse(localUser);
+        setUser(parsedUser);
+        setFullName(parsedUser.profile?.full_name || '');
+        setGender(parsedUser.profile?.gender || '');
+        setHeight(parsedUser.profile?.height_cm ? String(parsedUser.profile.height_cm) : '');
+        setWeight(parsedUser.profile?.weight_kg ? String(parsedUser.profile.weight_kg) : '');
+        setGoal(parsedUser.profile?.goal || '');
+      }
+      setLoading(false);
+      return; 
+    }
+
     const fetchProfile = async () => {
       setLoading(true);
       setError(null);
@@ -106,45 +124,20 @@ const ProfilePage = () => {
       return;
     }
 
-    setSaving(true);
-    try {
-      const response = await fetch('http://localhost:8000/api/users/me', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          profile: {
-            full_name: fullName,
-            gender: gender || undefined,
-            height_cm: height ? Number(height) : undefined,
-            weight_kg: weight ? Number(weight) : undefined,
-            goal: goal || undefined,
-          },
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.message || 'Cập nhật hồ sơ thất bại.');
-        return;
-      }
-
-      setSuccess('Cập nhật hồ sơ thành công!');
-      if (user) {
-        const updatedUser: UserResponse = { ...user, profile: data.profile };
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-      }
-    } catch {
-      setError('Có lỗi xảy ra khi kết nối tới server.');
-    } finally {
-      setSaving(false);
+    const isGoogle = localStorage.getItem('isGoogleLogin');
+    if (isGoogle === 'true') {
+      
+      setSaving(true);
+      setTimeout(() => {
+        setSuccess('Cập nhật hồ sơ thành công (Chế độ giả lập Google)!');
+        const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+        localUser.profile = { ...localUser.profile, full_name: fullName, gender, height_cm: Number(height), weight_kg: Number(weight), goal };
+        localStorage.setItem('user', JSON.stringify(localUser));
+        setSaving(false);
+      }, 500);
+      return;
     }
   };
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');

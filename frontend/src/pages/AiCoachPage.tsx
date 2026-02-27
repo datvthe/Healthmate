@@ -27,15 +27,18 @@ const AiCoachPage = () => {
     setIsTyping(true); // Hiển thị hiệu ứng "Coach is typing..."
 
     try {
-      // 2. Gọi API Backend (Đổi PORT 5000 thành port Backend của bạn)
+      const token = localStorage.getItem('token'); // Lấy token ra
+      const userString = localStorage.getItem('user');
+      const user = userString ? JSON.parse(userString) : null;
+
       const response = await fetch('http://localhost:8000/api/chat/ask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // 'Authorization': `Bearer ${localStorage.getItem('token')}` // Mở comment dòng này nếu dự án yêu cầu đăng nhập
+          'Authorization': `Bearer ${token}` // <--- GẮN TOKEN VÀO ĐÂY
         },
         body: JSON.stringify({ 
-            userId: 'USER_ID_GIẢ_LẬP_HOẶC_TỪ_CONTEXT', // Sửa lại logic lấy ID thật
+            userId: user?._id || 'ID_GIA_LAP', // Truyền ID thật của User
             message: currentInput 
         }) 
       });

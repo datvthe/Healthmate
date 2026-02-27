@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import Layout from '../components/Layout';
+import { useGoogleLogin } from '@react-oauth/google'; // BẮT BUỘC IMPORT CÁI NÀY
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -40,7 +40,7 @@ const LoginPage = () => {
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
 
-      // Chuyển đến trang hồ sơ cá nhân (hoặc trang AI Coach tùy flow)
+      // Chuyển đến trang chủ
       navigate('/homepage');
     } catch (err) {
       setError('Có lỗi xảy ra khi kết nối tới server.');
@@ -49,68 +49,135 @@ const LoginPage = () => {
     }
   };
 
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        // 1. Gọi API của Google để lấy thông tin thật (Tên, Ảnh, Email)
+        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        });
+        const userInfo = await userInfoRes.json();
+
+        // 2. Tạo User giả lập với thông tin thật
+        const googleUser = {
+          _id: userInfo.sub,
+          email: userInfo.email,
+          role: 'user',
+          profile: {
+            full_name: userInfo.name, // Lấy tên thật của Google
+            picture: userInfo.picture // Lấy Avatar thật của Google
+          }
+        };
+
+        // 3. Lưu vào LocalStorage
+        localStorage.setItem('token', tokenResponse.access_token);
+        localStorage.setItem('isGoogleLogin', 'true'); // <--- Cắm cờ để ProfilePage không đá văng
+        localStorage.setItem('user', JSON.stringify(googleUser));
+
+        // 4. Chuyển sang Onboarding
+        navigate('/onboarding'); 
+      } catch (err) {
+        setError('Không thể lấy thông tin từ Google.');
+      }
+    },
+    onError: () => {
+      setError('Cửa sổ đăng nhập Google bị đóng hoặc có lỗi.');
+    }
+  });
+
   return (
-    <Layout>
-      <div className="max-w-md mx-auto bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 p-8">
-        <h1 className="text-2xl font-bold mb-2">Đăng nhập</h1>
-        <p className="text-sm text-slate-500 mb-6">
-          Đăng nhập để truy cập AI Coach và quản lý hồ sơ sức khỏe của bạn.
-        </p>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 font-display text-slate-900 dark:text-slate-100">
+      
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-8 sm:p-10">
+        
+        <div className="text-center mb-8">
+          <Link to="/homepage" title="Quay về trang chủ" className="inline-flex items-center justify-center size-12 bg-primary/10 text-primary rounded-full mb-4 hover:bg-primary/20 transition-colors">
+            <span className="material-symbols-outlined text-3xl">exercise</span>
+          </Link>
+          <h1 className="text-2xl font-bold mb-2">Chào mừng trở lại!</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Đăng nhập vào HealthMate để tiếp tục.
+          </p>
+        </div>
 
         {error && (
-          <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          <div className="mb-6 text-sm text-red-600 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg px-4 py-3">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="email">
+            <label className="block text-sm font-semibold mb-1.5" htmlFor="email">
               Email
             </label>
             <input
               id="email"
               type="email"
-              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
+              placeholder="nhap@email.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="password">
+            <label className="block text-sm font-semibold mb-1.5" htmlFor="password">
               Mật khẩu
             </label>
             <input
               id="password"
               type="password"
-              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
+              placeholder="••••••••"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-10 rounded-lg bg-primary text-slate-900 font-semibold text-sm hover:opacity-90 disabled:opacity-60 transition-opacity"
+            className="w-full h-11 mt-2 rounded-xl bg-primary text-slate-900 font-bold text-sm hover:opacity-90 disabled:opacity-60 transition-opacity flex items-center justify-center shadow-lg shadow-primary/20"
           >
-            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            {loading ? 'Đang xác thực...' : 'Đăng nhập'}
           </button>
         </form>
 
-        <p className="mt-4 text-sm text-slate-500">
+        <div className="mt-8">
+          <div className="relative flex items-center justify-center">
+            <hr className="w-full border-slate-200 dark:border-slate-700" />
+            <span className="absolute bg-white dark:bg-slate-900 px-3 text-xs text-slate-500 font-medium uppercase tracking-wider">
+              Hoặc tiếp tục với
+            </span>
+          </div>
+
+          {/* CHÚ Ý: Chỗ onClick này đã đổi thành ()=> handleGoogleLogin() */}
+          <button
+            type="button"
+            onClick={() => handleGoogleLogin()}
+            className="mt-6 w-full h-11 flex items-center justify-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+          >
+            <img 
+              src="https://www.svgrepo.com/show/475656/google-color.svg" 
+              alt="Google Logo" 
+              className="w-5 h-5"
+            />
+            Google
+          </button>
+        </div>
+
+        <p className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
           Chưa có tài khoản?{' '}
-          <Link to="/register" className="text-primary font-semibold">
+          <Link to="/register" className="text-primary font-bold hover:underline">
             Đăng ký ngay
           </Link>
         </p>
       </div>
-    </Layout>
+    </div>
   );
 };
 
 export default LoginPage;
-
