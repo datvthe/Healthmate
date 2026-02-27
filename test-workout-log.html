@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Workout Log API</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 10px 0; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        button { background: #13ec5b; color: black; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        input, select { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; }
+        pre { background: #f0f0f0; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>📋 Test Workout Log API</h1>
+    
+    <div class="container">
+        <h2>Step 1: Login</h2>
+        <input type="email" id="email" placeholder="Email" value="test@example.com">
+        <input type="password" id="password" placeholder="Password" value="password123">
+        <button onclick="login()">🔑 Login</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 2: Tạo Workout Mới</h2>
+        <input type="text" id="workoutName" placeholder="Tên Workout" value="Push Day">
+        <select id="category">
+            <option value="Strength">Strength</option>
+            <option value="Cardio">Cardio</option>
+        </select>
+        <button onclick="createWorkout()">🏋️ Tạo Workout</button>
+        <div id="createResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 3: Lấy Danh Sách Workouts</h2>
+        <button onclick="getWorkouts()">📋 Lấy Workouts</button>
+        <div id="workoutsResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 4: Tạo Workout Log</h2>
+        <select id="workoutSelect">
+            <option value="">Chọn Workout...</option>
+        </select>
+        <input type="number" id="duration" placeholder="Thời gian (phút)" value="30">
+        <input type="number" id="calories" placeholder="Calories" value="200">
+        <input type="text" id="notes" placeholder="Ghi chú" value="Good workout!">
+        <button onclick="createWorkoutLog()">📝 Tạo Workout Log</button>
+        <div id="logResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 5: Mở Workout Manager</h2>
+        <button onclick="openWorkoutManager()">🚀 Mở Workout Manager</button>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let authToken = '';
+        let workoutsList = [];
+
+        function showResult(id, message, isError = false) {
+            document.getElementById(id).innerHTML = `<div class="${isError ? 'error' : 'success'}">${message}</div>`;
+        }
+
+        function showJSON(id, data) {
+            document.getElementById(id).innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+
+        async function login() {
+            try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                showResult('loginResult', '🔄 Đang login...');
+                
+                const response = await fetch(`${API_BASE}/users/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.token;
+                    localStorage.setItem('test_token', authToken);
+                    showResult('loginResult', '✅ Login thành công!');
+                } else {
+                    showResult('loginResult', `❌ Login thất bại: ${data.message}`, true);
+                }
+                
+                showJSON('loginResult', data);
+            } catch (error) {
+                showResult('loginResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function createWorkout() {
+            try {
+                if (!authToken) {
+                    showResult('createResult', '❌ Cần login trước!', true);
+                    return;
+                }
+
+                const workoutData = {
+                    name: document.getElementById('workoutName').value,
+                    description: 'Test workout for logging',
+                    category: document.getElementById('category').value,
+                    duration: 30,
+                    calories: 200,
+                    difficulty: 'Beginner'
+                };
+                
+                showResult('createResult', '🔄 Đang tạo workout...');
+                
+                const response = await fetch(`${API_BASE}/workouts`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(workoutData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('createResult', '✅ Tạo workout thành công!');
+                    // Auto refresh workouts list
+                    setTimeout(() => getWorkouts(), 1000);
+                } else {
+                    showResult('createResult', `❌ Tạo workout thất bại: ${data.message}`, true);
+                }
+                
+                showJSON('createResult', data);
+            } catch (error) {
+                showResult('createResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function getWorkouts() {
+            try {
+                if (!authToken) {
+                    showResult('workoutsResult', '❌ Cần login trước!', true);
+                    return;
+                }
+                
+                showResult('workoutsResult', '🔄 Đang lấy workouts...');
+                
+                const response = await fetch(`${API_BASE}/workouts`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    workoutsList = data;
+                    showResult('workoutsResult', `✅ Lấy thành công ${data.length} workouts!`);
+                    updateWorkoutSelect();
+                } else {
+                    showResult('workoutsResult', `❌ Lấy workouts thất bại: ${data.message}`, true);
+                }
+                
+                showJSON('workoutsResult', data);
+            } catch (error) {
+                showResult('workoutsResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        function updateWorkoutSelect() {
+            const select = document.getElementById('workoutSelect');
+            select.innerHTML = '<option value="">Chọn Workout...</option>';
+            
+            workoutsList.forEach(workout => {
+                const option = document.createElement('option');
+                option.value = workout._id;
+                option.textContent = `${workout.name} (${workout.category})`;
+                select.appendChild(option);
+            });
+        }
+
+        async function createWorkoutLog() {
+            try {
+                if (!authToken) {
+                    showResult('logResult', '❌ Cần login trước!', true);
+                    return;
+                }
+
+                const workoutId = document.getElementById('workoutSelect').value;
+                const duration = document.getElementById('duration').value;
+                const calories = document.getElementById('calories').value;
+                const notes = document.getElementById('notes').value;
+
+                if (!workoutId || !duration || !calories) {
+                    showResult('logResult', '❌ Vui lòng chọn workout và điền đầy đủ thông tin!', true);
+                    return;
+                }
+                
+                showResult('logResult', '🔄 Đang tạo workout log...');
+                
+                const response = await fetch(`${API_BASE}/tracker/workouts`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        workout_id: workoutId,
+                        duration_minutes: parseInt(duration),
+                        calories_burned: parseInt(calories),
+                        notes
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('logResult', '✅ Tạo workout log thành công!');
+                } else {
+                    showResult('logResult', `❌ Tạo workout log thất bại: ${data.message}`, true);
+                }
+                
+                showJSON('logResult', data);
+            } catch (error) {
+                showResult('logResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        function openWorkoutManager() {
+            window.open('http://localhost:5173/workouts', '_blank');
+        }
+
+        // Auto-check backend
+        window.onload = function() {
+            fetch(`${API_BASE}/users/login`)
+                .then(response => {
+                    if (response.ok) {
+                        showResult('loginResult', '✅ Backend đang chạy!');
+                    } else {
+                        showResult('loginResult', '❌ Backend có vấn đề', true);
+                    }
+                })
+                .catch(error => {
+                    showResult('loginResult', `❌ Backend không chạy: ${error.message}`, true);
+                });
+        };
+    </script>
+</body>
+</html>

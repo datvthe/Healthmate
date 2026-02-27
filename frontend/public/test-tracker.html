@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tracker & Analyst - Web Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f6f8f6;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #13ec5b;
+            margin-bottom: 10px;
+        }
+        .status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 5px;
+            display: inline-block;
+        }
+        .success { background: #10b981; color: white; }
+        .error { background: #ef4444; color: white; }
+        .pending { background: #f59e0b; color: white; }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        .test-button {
+            background: #13ec5b;
+            color: #0f172a;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            opacity: 0.9;
+        }
+        .result-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #13ec5b 0%, #10b981 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏋️ Tracker & Analyst Module</h1>
+        <p>Kiểm tra trực tiếp chức năng theo dõi và thống kê</p>
+        <div id="connection-status">
+            <span class="status pending">Đang kiểm tra kết nối...</span>
+        </div>
+    </div>
+
+    <!-- 1. Authentication Section -->
+    <div class="container">
+        <h2>🔐 1. Authentication</h2>
+        <div class="test-section">
+            <div class="input-group">
+                <label>Email:</label>
+                <input type="email" id="email" value="test@example.com" placeholder="Nhập email">
+            </div>
+            <div class="input-group">
+                <label>Password:</label>
+                <input type="password" id="password" value="password123" placeholder="Nhập password">
+            </div>
+            <button class="test-button" onclick="testLogin()">🔑 Login</button>
+            <button class="test-button" onclick="testRegister()">📝 Register</button>
+            <div id="auth-result" class="result-box"></div>
+        </div>
+    </div>
+
+    <!-- 2. Dashboard Stats -->
+    <div class="container">
+        <h2>📊 2. Dashboard Statistics</h2>
+        <div class="test-section">
+            <button class="test-button" onclick="testDashboardStats()">📈 Lấy Dashboard Stats</button>
+            <div id="dashboard-result" class="result-box"></div>
+            <div id="stats-display" class="stats-grid"></div>
+        </div>
+    </div>
+
+    <!-- 3. Workout Logs -->
+    <div class="container">
+        <h2>💪 3. Workout Logs</h2>
+        <div class="test-section">
+            <h3>Thêm Workout Log:</h3>
+            <div class="input-group">
+                <label>Workout ID (demo):</label>
+                <input type="text" id="workout_id" value="64f1a2b3c4d5e6f7g8h9i0j1" placeholder="Workout ID">
+            </div>
+            <div class="input-group">
+                <label>Thời gian (phút):</label>
+                <input type="number" id="duration" value="45" placeholder="Duration">
+            </div>
+            <div class="input-group">
+                <label>Calories đốt:</label>
+                <input type="number" id="calories" value="350" placeholder="Calories">
+            </div>
+            <div class="input-group">
+                <label>Ghi chú:</label>
+                <textarea id="notes" placeholder="Notes về buổi tập">Tập rất tốt hôm nay!</textarea>
+            </div>
+            <button class="test-button" onclick="saveWorkoutLog()">💾 Lưu Workout Log</button>
+            <button class="test-button" onclick="getWorkoutLogs()">📋 Lấy Workout Logs</button>
+            <div id="workout-result" class="result-box"></div>
+        </div>
+    </div>
+
+    <!-- 4. Body Progress -->
+    <div class="container">
+        <h2>⚖️ 4. Body Progress</h2>
+        <div class="test-section">
+            <h3>Cập nhật cân nặng:</h3>
+            <div class="input-group">
+                <label>Cân nặng (kg):</label>
+                <input type="number" id="weight" value="75.5" step="0.1" placeholder="Weight">
+            </div>
+            <div class="input-group">
+                <label>Tỷ lệ mỡ (%):</label>
+                <input type="number" id="body_fat" value="18.5" step="0.1" placeholder="Body Fat %">
+            </div>
+            <div class="input-group">
+                <label>Ghi chú:</label>
+                <textarea id="weight_notes" placeholder="Notes về cân nặng">Giảm 0.5kg so với tuần trước</textarea>
+            </div>
+            <button class="test-button" onclick="updateBodyProgress()">⚖️ Cập nhật Weight</button>
+            <button class="test-button" onclick="getBodyProgress()">📈 Lấy Progress Data</button>
+            <div id="body-result" class="result-box"></div>
+        </div>
+    </div>
+
+    <!-- 5. Quick Test Data -->
+    <div class="container">
+        <h2>🚀 5. Quick Test Data</h2>
+        <div class="test-section">
+            <p>Tự động tạo dữ liệu mẫu để test:</p>
+            <button class="test-button" onclick="createSampleData()">🎲 Tạo Sample Data</button>
+            <button class="test-button" onclick="clearAllData()">🗑️ Xóa All Data</button>
+            <div id="sample-result" class="result-box"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let authToken = localStorage.getItem('test_token') || '';
+
+        // Update connection status
+        async function checkConnection() {
+            try {
+                const response = await fetch(`${API_BASE}/users/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'test@test.com', password: 'test' })
+                });
+                
+                const statusDiv = document.getElementById('connection-status');
+                if (response.status === 401 || response.status === 400) {
+                    statusDiv.innerHTML = '<span class="status success">✅ Backend đang chạy (port 8000)</span>';
+                } else {
+                    statusDiv.innerHTML = '<span class="status success">✅ Kết nối thành công</span>';
+                }
+            } catch (error) {
+                document.getElementById('connection-status').innerHTML = 
+                    '<span class="status error">❌ Không kết nối được đến backend. Hãy chắc chắn server đang chạy port 8000</span>';
+            }
+        }
+
+        function showResult(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="${isError ? 'error' : 'success'}">${message}</div>`;
+        }
+
+        function showJSON(elementId, data) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+
+        // 1. Authentication
+        async function testLogin() {
+            try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                const response = await fetch(`${API_BASE}/users/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.token;
+                    localStorage.setItem('test_token', authToken);
+                    showResult('auth-result', `✅ Login thành công! Token: ${authToken.substring(0, 20)}...`);
+                } else {
+                    showResult('auth-result', `❌ Login thất bại: ${data.message}`, true);
+                }
+                
+                showJSON('auth-result', data);
+            } catch (error) {
+                showResult('auth-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function testRegister() {
+            try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                const response = await fetch(`${API_BASE}/users/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email, 
+                        password,
+                        name: 'Test User',
+                        age: 25,
+                        gender: 'male',
+                        height: 175,
+                        weight: 75,
+                        goal: 'gain_muscle'
+                    })
+                });
+                
+                const data = await response.json();
+                showJSON('auth-result', data);
+                
+                if (response.ok) {
+                    showResult('auth-result', '✅ Register thành công! Hãy login để lấy token.');
+                } else {
+                    showResult('auth-result', `❌ Register thất bại: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('auth-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        // 2. Dashboard Stats
+        async function testDashboardStats() {
+            try {
+                const response = await fetch(`${API_BASE}/tracker/dashboard-stats`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                const data = await response.json();
+                showJSON('dashboard-result', data);
+                
+                if (response.ok) {
+                    // Display stats cards
+                    const statsHTML = `
+                        <div class="stat-card">
+                            <div class="stat-number">${data.week.totalCalories || 0}</div>
+                            <div class="stat-label">Calories/Tuần</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${data.week.totalWorkouts || 0}</div>
+                            <div class="stat-label">Workouts/Tuần</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${data.body.currentWeight || '--'}</div>
+                            <div class="stat-label">Weight (kg)</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${data.week.totalDuration || 0}</div>
+                            <div class="stat-label">Duration (phút)</div>
+                        </div>
+                    `;
+                    document.getElementById('stats-display').innerHTML = statsHTML;
+                    showResult('dashboard-result', '✅ Dashboard stats loaded successfully!');
+                } else {
+                    showResult('dashboard-result', `❌ Error: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('dashboard-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        // 3. Workout Logs
+        async function saveWorkoutLog() {
+            try {
+                const workout_id = document.getElementById('workout_id').value;
+                const duration = document.getElementById('duration').value;
+                const calories = document.getElementById('calories').value;
+                const notes = document.getElementById('notes').value;
+                
+                const response = await fetch(`${API_BASE}/tracker/workouts`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ workout_id, duration_minutes: parseInt(duration), calories_burned: parseInt(calories), notes })
+                });
+                
+                const data = await response.json();
+                showJSON('workout-result', data);
+                
+                if (response.ok) {
+                    showResult('workout-result', '✅ Workout log saved successfully!');
+                } else {
+                    showResult('workout-result', `❌ Error: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('workout-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function getWorkoutLogs() {
+            try {
+                const response = await fetch(`${API_BASE}/tracker/workouts?period=week&limit=10`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                const data = await response.json();
+                showJSON('workout-result', data);
+                
+                if (response.ok) {
+                    showResult('workout-result', `✅ Found ${data.workoutLogs.length} workout logs`);
+                } else {
+                    showResult('workout-result', `❌ Error: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('workout-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        // 4. Body Progress
+        async function updateBodyProgress() {
+            try {
+                const weight = document.getElementById('weight').value;
+                const body_fat = document.getElementById('body_fat').value;
+                const notes = document.getElementById('weight_notes').value;
+                
+                const response = await fetch(`${API_BASE}/tracker/body-progress`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        weight_kg: parseFloat(weight), 
+                        body_fat_percentage: parseFloat(body_fat), 
+                        note: notes 
+                    })
+                });
+                
+                const data = await response.json();
+                showJSON('body-result', data);
+                
+                if (response.ok) {
+                    showResult('body-result', '✅ Body progress updated successfully!');
+                } else {
+                    showResult('body-result', `❌ Error: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('body-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function getBodyProgress() {
+            try {
+                const response = await fetch(`${API_BASE}/tracker/body-progress?period=month`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                const data = await response.json();
+                showJSON('body-result', data);
+                
+                if (response.ok) {
+                    showResult('body-result', `✅ Found ${data.bodyProgress.length} body progress records`);
+                } else {
+                    showResult('body-result', `❌ Error: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('body-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        // 5. Sample Data
+        async function createSampleData() {
+            try {
+                showResult('sample-result', '🔄 Đang tạo sample data...');
+                
+                // Create body progress data
+                const weightData = [
+                    { weight_kg: 78, note: "Đầu tháng" },
+                    { weight_kg: 77.5, note: "Tuần 1" },
+                    { weight_kg: 76.8, note: "Tuần 2" },
+                    { weight_kg: 76.2, note: "Tuần 3" },
+                    { weight_kg: 75.5, note: "Hiện tại" }
+                ];
+
+                for (let i = 0; i < weightData.length; i++) {
+                    const date = new Date();
+                    date.setDate(date.getDate() - (4 - i) * 7);
+                    
+                    await fetch(`${API_BASE}/tracker/body-progress`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            weight_kg: weightData[i].weight_kg,
+                            note: weightData[i].note
+                        })
+                    });
+                }
+
+                // Create workout logs
+                const workouts = [
+                    { name: "Push Day", calories: 300, duration: 45 },
+                    { name: "Pull Day", calories: 280, duration: 40 },
+                    { name: "Leg Day", calories: 350, duration: 50 },
+                    { name: "Cardio", calories: 200, duration: 30 },
+                    { name: "HIIT", calories: 400, duration: 35 }
+                ];
+
+                for (let i = 0; i < workouts.length; i++) {
+                    const date = new Date();
+                    date.setDate(date.getDate() - i);
+                    
+                    await fetch(`${API_BASE}/tracker/workouts`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            workout_id: "64f1a2b3c4d5e6f7g8h9i0j1",
+                            duration_minutes: workouts[i].duration,
+                            calories_burned: workouts[i].calories,
+                            notes: `${workouts[i].name} - ${i === 0 ? 'Hôm nay' : `${i} ngày trước`}`
+                        })
+                    });
+                }
+
+                showResult('sample-result', '✅ Sample data created successfully! Refresh dashboard to see changes.');
+                
+                // Auto-refresh dashboard stats
+                setTimeout(() => testDashboardStats(), 1000);
+                
+            } catch (error) {
+                showResult('sample-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function clearAllData() {
+            if (!confirm('⚠️ Bạn có chắc muốn xóa tất cả data?')) return;
+            
+            try {
+                showResult('sample-result', '🔄 Đang xóa data...');
+                
+                // This would require delete endpoints - for now just show message
+                showResult('sample-result', 'ℹ️ Chức năng xóa data cần thêm DELETE endpoints vào backend');
+                
+            } catch (error) {
+                showResult('sample-result', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        // Initialize
+        window.onload = function() {
+            checkConnection();
+            
+            // Auto-fill token if exists
+            if (authToken) {
+                showResult('auth-result', `✅ Token sẵn có: ${authToken.substring(0, 20)}...`);
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tạo Sample Workouts</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 10px 0; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        button { background: #13ec5b; color: black; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        pre { background: #f0f0f0; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🏋️ Tạo Sample Workouts</h1>
+    
+    <div class="container">
+        <h2>Step 1: Login</h2>
+        <button onclick="login()">🔑 Login</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 2: Tạo Sample Workouts</h2>
+        <button onclick="createAllSampleWorkouts()">🚀 Tạo Tất Cả Sample Workouts</button>
+        <div id="createResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 3: Kiểm Tra Workouts</h2>
+        <button onclick="checkWorkouts()">📋 Kiểm Tra Workouts</button>
+        <div id="checkResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 4: Mở Workout Manager</h2>
+        <button onclick="openWorkoutManager()">🎯 Mở Workout Manager</button>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let authToken = '';
+
+        function showResult(id, message, isError = false) {
+            document.getElementById(id).innerHTML = `<div class="${isError ? 'error' : 'success'}">${message}</div>`;
+        }
+
+        function showJSON(id, data) {
+            document.getElementById(id).innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+
+        async function login() {
+            try {
+                showResult('loginResult', '🔄 Đang login...');
+                
+                const response = await fetch(`${API_BASE}/users/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: 'test@example.com', 
+                        password: 'password123' 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.token;
+                    localStorage.setItem('token', authToken);
+                    showResult('loginResult', '✅ Login thành công!');
+                } else {
+                    showResult('loginResult', `❌ Login thất bại: ${data.message}`, true);
+                }
+                
+                showJSON('loginResult', data);
+            } catch (error) {
+                showResult('loginResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function createAllSampleWorkouts() {
+            try {
+                if (!authToken) {
+                    showResult('createResult', '❌ Cần login trước!', true);
+                    return;
+                }
+                
+                showResult('createResult', '🔄 Đang tạo sample workouts...');
+                
+                const sampleWorkouts = [
+                    {
+                        name: 'Push Day',
+                        description: 'Tập ngực, vai, tay trước',
+                        category: 'Strength',
+                        duration: 45,
+                        calories: 300,
+                        difficulty: 'Intermediate'
+                    },
+                    {
+                        name: 'Pull Day',
+                        description: 'Tập lưng, vai, tay sau',
+                        category: 'Strength',
+                        duration: 45,
+                        calories: 280,
+                        difficulty: 'Intermediate'
+                    },
+                    {
+                        name: 'Leg Day',
+                        description: 'Tập chân và cơ bụng',
+                        category: 'Strength',
+                        duration: 50,
+                        calories: 350,
+                        difficulty: 'Advanced'
+                    },
+                    {
+                        name: 'Cardio HIIT',
+                        description: 'Bài tập cardio cường độ cao',
+                        category: 'Cardio',
+                        duration: 30,
+                        calories: 350,
+                        difficulty: 'Advanced'
+                    },
+                    {
+                        name: 'Morning Run',
+                        description: 'Chạy bộ buổi sáng',
+                        category: 'Cardio',
+                        duration: 40,
+                        calories: 300,
+                        difficulty: 'Beginner'
+                    },
+                    {
+                        name: 'Yoga Flow',
+                        description: 'Bài tập yoga thư giãn',
+                        category: 'Flexibility',
+                        duration: 60,
+                        calories: 200,
+                        difficulty: 'Beginner'
+                    },
+                    {
+                        name: 'Core Workout',
+                        description: 'Tập cơ bụng và core',
+                        category: 'Strength',
+                        duration: 25,
+                        calories: 150,
+                        difficulty: 'Beginner'
+                    },
+                    {
+                        name: 'Full Body',
+                        description: 'Tập toàn thân',
+                        category: 'Strength',
+                        duration: 60,
+                        calories: 400,
+                        difficulty: 'Intermediate'
+                    },
+                    {
+                        name: 'Stretching',
+                        description: 'Giãn cơ và phục hồi',
+                        category: 'Flexibility',
+                        duration: 20,
+                        calories: 80,
+                        difficulty: 'Beginner'
+                    },
+                    {
+                        name: 'Cycling',
+                        description: 'Đạp xe cố định',
+                        category: 'Cardio',
+                        duration: 45,
+                        calories: 320,
+                        difficulty: 'Intermediate'
+                    }
+                ];
+                
+                let successCount = 0;
+                let errorCount = 0;
+                const results = [];
+                
+                for (let i = 0; i < sampleWorkouts.length; i++) {
+                    const workout = sampleWorkouts[i];
+                    
+                    try {
+                        const response = await fetch(`${API_BASE}/workouts`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${authToken}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(workout)
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                            successCount++;
+                            results.push({ workout: workout.name, status: '✅ Success', data });
+                        } else {
+                            errorCount++;
+                            results.push({ workout: workout.name, status: `❌ Error: ${data.message}`, data });
+                        }
+                    } catch (error) {
+                        errorCount++;
+                        results.push({ workout: workout.name, status: `❌ Error: ${error.message}`, data: null });
+                    }
+                    
+                    // Delay nhỏ để tránh rate limit
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
+                showResult('createResult', `✅ Hoàn thành! Thành công: ${successCount}, Lỗi: ${errorCount}`);
+                showJSON('createResult', results);
+                
+            } catch (error) {
+                showResult('createResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function checkWorkouts() {
+            try {
+                if (!authToken) {
+                    showResult('checkResult', '❌ Cần login trước!', true);
+                    return;
+                }
+                
+                showResult('checkResult', '🔄 Đang kiểm tra workouts...');
+                
+                const response = await fetch(`${API_BASE}/workouts`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('checkResult', `✅ Tìm thấy ${data.length} workouts!`);
+                    
+                    // Group by category
+                    const byCategory = data.reduce((acc, workout) => {
+                        if (!acc[workout.category]) acc[workout.category] = [];
+                        acc[workout.category].push(workout);
+                        return acc;
+                    }, {});
+                    
+                    const summary = {
+                        total: data.length,
+                        byCategory: Object.keys(byCategory).map(cat => ({
+                            category: cat,
+                            count: byCategory[cat].length,
+                            workouts: byCategory[cat].map(w => w.name)
+                        }))
+                    };
+                    
+                    showJSON('checkResult', summary);
+                } else {
+                    showResult('checkResult', `❌ Lỗi: ${data.message}`, true);
+                }
+                
+            } catch (error) {
+                showResult('checkResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        function openWorkoutManager() {
+            window.open('http://localhost:5173/workouts', '_blank');
+        }
+    </script>
+</body>
+</html>

@@ -14,6 +14,8 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 import HomePage from './pages/HomePage';
+import DashboardPage from './pages/DashboardPage';
+import WorkoutManagerPage from './pages/WorkoutManagerPage';
 // Sau này có trang Admin thì bạn import ở đây, vd: import AdminDashboard from './pages/AdminDashboard';
 
 
@@ -38,6 +40,12 @@ export default function App() {
 
         {/* Hồ sơ cá nhân */}
         <Route path="/profile" element={<ProfilePage />} />
+
+        {/* Dashboard - Trang chủ của User */}
+        <Route path="/dashboard" element={<DashboardPage />} />
+
+        {/* Workout Manager */}
+        <Route path="/workouts" element={<WorkoutManagerPage />} />
 
         {/* Đường dẫn tĩnh cho trang AI Coach */}
         <Route path="/aicoach" element={<AiCoachPage />} />
