@@ -25,6 +25,12 @@ app.use("/api/users", userRoutes);
 const chatRoutes = require("./routes/chatRoutes");
 app.use("/api/chat", chatRoutes);
 
+const foodRoutes = require('./routes/food-routes');
+app.use('/api/foods', foodRoutes);
+
+const mealPlanRoutes = require('./routes/meal-plan-routes');
+app.use('/api/meal-plans', mealPlanRoutes);
+
 // API test thử
 app.get("/", (req, res) => {
   res.send("Healthmate API đang chạy thành công! 🚀");
