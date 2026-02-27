@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
+import toast from 'react-hot-toast';
+import ConfirmModal from '../components/confirm-modal';
 
 interface Food {
   _id: string;
@@ -19,6 +21,11 @@ const FoodCatalogPage = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    foodId: string;
+    foodName: string;
+  }>({ isOpen: false, foodId: '', foodName: '' });
 
   useEffect(() => {
     fetchFoods();
@@ -41,6 +48,28 @@ const FoodCatalogPage = () => {
       console.error('Lỗi khi tải danh sách món ăn:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteClick = (food: Food) => {
+    setDeleteModal({ isOpen: true, foodId: food._id, foodName: food.name });
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/foods/${deleteModal.foodId}`, {
+        method: 'DELETE', credentials: 'include'
+      });
+      if (response.ok) {
+        toast.success(`Đã xóa "${deleteModal.foodName}"`);
+        fetchFoods();
+      } else {
+        toast.error('Lỗi khi xóa món ăn');
+      }
+    } catch {
+      toast.error('Lỗi kết nối server');
+    } finally {
+      setDeleteModal({ isOpen: false, foodId: '', foodName: '' });
     }
   };
 
@@ -129,17 +158,30 @@ const FoodCatalogPage = () => {
                   </div>
                 </div>
 
-                <Link
-                  to={`/meal-planner?addFood=${food._id}`}
-                  className="mt-4 w-full block text-center py-2 bg-primary/10 text-primary rounded-lg font-medium hover:bg-primary/20 transition"
-                >
-                  Thêm vào thực đơn
-                </Link>
+                <div className="mt-4 flex gap-2">
+                  <Link to={`/meal-planner?addFood=${food._id}`} className="flex-1 text-center py-2 bg-primary/10 text-primary rounded-lg font-medium hover:bg-primary/20 transition">
+                    Thêm vào thực đơn
+                  </Link>
+                  <Link to={`/dashboard/foods/${food._id}`} className="px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="Sửa">
+                    ✎
+                  </Link>
+                  <button onClick={() => handleDeleteClick(food)} className="px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition" title="Xóa">
+                    ✕
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="Xóa món ăn"
+        message={`Bạn có chắc muốn xóa "${deleteModal.foodName}"? Hành động này không thể hoàn tác.`}
+        confirmText="Xóa"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteModal({ isOpen: false, foodId: '', foodName: '' })}
+      />
     </Layout>
   );
 };

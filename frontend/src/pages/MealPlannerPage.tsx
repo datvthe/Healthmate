@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import Layout from '../components/Layout';
+import ConfirmModal from '../components/confirm-modal';
 
 interface MealItem {
   _id: string;
@@ -29,6 +31,11 @@ const MealPlannerPage = () => {
   const [foods, setFoods] = useState<Food[]>([]);
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editQuantity, setEditQuantity] = useState<number>(0);
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    itemId: string;
+    itemName: string;
+  }>({ isOpen: false, itemId: '', itemName: '' });
 
   useEffect(() => {
     fetchMealPlan();
@@ -68,10 +75,7 @@ const MealPlannerPage = () => {
   };
 
   const handleAddFoodFromUrl = async (foodId: string) => {
-    const quantity = prompt('Nhập số gram:', '100');
-    if (quantity) {
-      await addFoodToMealPlan(foodId, parseInt(quantity));
-    }
+    await addFoodToMealPlan(foodId, 100); // Default 100g
   };
 
   const addFoodToMealPlan = async (foodId: string, quantity: number) => {
@@ -84,34 +88,42 @@ const MealPlannerPage = () => {
       });
 
       if (response.ok) {
+        toast.success('Đã thêm món ăn');
         fetchMealPlan();
         setShowFoodModal(false);
       } else {
         const data = await response.json();
-        alert(data.message || 'Lỗi khi thêm món ăn');
+        toast.error(data.message || 'Lỗi khi thêm món ăn');
       }
     } catch (error) {
       console.error('Lỗi khi thêm món ăn:', error);
     }
   };
 
-  const removeItem = async (itemId: string) => {
-    if (!confirm('Bạn có chắc muốn xóa món này?')) return;
+  const handleRemoveClick = (item: MealItem) => {
+    setDeleteModal({ isOpen: true, itemId: item._id, itemName: item.name });
+  };
 
+  const handleRemoveConfirm = async () => {
     try {
       const response = await fetch(
-        `http://localhost:8000/api/meal-plans/${selectedDate}/items/${itemId}`,
+        `http://localhost:8000/api/meal-plans/${selectedDate}/items/${deleteModal.itemId}`,
         { method: 'DELETE', credentials: 'include' }
       );
-      if (response.ok) fetchMealPlan();
-    } catch (error) {
-      console.error('Lỗi khi xóa món ăn:', error);
+      if (response.ok) {
+        toast.success('Đã xóa món ăn');
+        fetchMealPlan();
+      }
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setDeleteModal({ isOpen: false, itemId: '', itemName: '' });
     }
   };
 
   const updateQuantity = async (itemId: string) => {
-    if (editQuantity <= 0) {
-      alert('Số lượng phải lớn hơn 0');
+    if (editQuantity <= 0 || editQuantity > 5000) {
+      toast.error('Số gram phải từ 1-5000');
       return;
     }
 
@@ -126,6 +138,7 @@ const MealPlannerPage = () => {
         }
       );
       if (response.ok) {
+        toast.success('Đã cập nhật');
         fetchMealPlan();
         setEditingItem(null);
       }
@@ -224,7 +237,7 @@ const MealPlannerPage = () => {
                       <div className="text-xs text-slate-500">kcal</div>
                     </div>
                     <button
-                      onClick={() => removeItem(item._id)}
+                      onClick={() => handleRemoveClick(item)}
                       className="w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
                     >
                       X
@@ -251,15 +264,8 @@ const MealPlannerPage = () => {
               ) : (
                 <div className="space-y-2">
                   {foods.map((food) => (
-                    <button
-                      key={food._id}
-                      onClick={() => {
-                        const quantity = prompt(`Nhập số gram cho ${food.name}:`, '100');
-                        if (quantity) addFoodToMealPlan(food._id, parseInt(quantity));
-                      }}
-                      className="w-full p-3 text-left bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition"
-                    >
-                      <div className="flex items-center justify-between">
+                    <div key={food._id} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
                         <div>
                           <div className="font-medium">{food.name}</div>
                           <div className="text-xs text-slate-500">{food.category}</div>
@@ -269,7 +275,32 @@ const MealPlannerPage = () => {
                           <div className="text-xs text-slate-500">kcal/100g</div>
                         </div>
                       </div>
-                    </button>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          defaultValue="100"
+                          min="1"
+                          max="5000"
+                          className="flex-1 px-2 py-1 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded"
+                          id={`qty-${food._id}`}
+                        />
+                        <span className="text-xs text-slate-500">g</span>
+                        <button
+                          onClick={() => {
+                            const input = document.getElementById(`qty-${food._id}`) as HTMLInputElement;
+                            const qty = parseInt(input?.value || '100');
+                            if (qty > 0 && qty <= 5000) {
+                              addFoodToMealPlan(food._id, qty);
+                            } else {
+                              toast.error('Số gram phải từ 1-5000');
+                            }
+                          }}
+                          className="px-3 py-1 bg-primary text-slate-900 text-sm rounded font-medium hover:bg-primary/90"
+                        >
+                          Thêm
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -277,6 +308,15 @@ const MealPlannerPage = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="Xóa món ăn"
+        message={`Bạn có chắc muốn xóa "${deleteModal.itemName}" khỏi thực đơn?`}
+        confirmText="Xóa"
+        onConfirm={handleRemoveConfirm}
+        onCancel={() => setDeleteModal({ isOpen: false, itemId: '', itemName: '' })}
+      />
     </Layout>
   );
 };
