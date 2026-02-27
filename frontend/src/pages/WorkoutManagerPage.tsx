@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface Workout {
@@ -42,7 +42,7 @@ const WorkoutManagerPage: React.FC = () => {
     difficulty: 'Beginner'
   });
 
-  const fetchWorkouts = async () => {
+  const fetchWorkouts = useCallback(async () => {
     try {
       const savedToken = localStorage.getItem('token');
       const response = await fetch('http://localhost:8000/api/workouts', {
@@ -58,9 +58,9 @@ const WorkoutManagerPage: React.FC = () => {
     } catch (error) {
       console.error('Error fetching workouts:', error);
     }
-  };
+  }, []);
 
-  const fetchWorkoutLogs = async () => {
+  const fetchWorkoutLogs = useCallback(async () => {
     try {
       const savedToken = localStorage.getItem('token');
       const response = await fetch('http://localhost:8000/api/tracker/workouts?period=week', {
@@ -76,7 +76,7 @@ const WorkoutManagerPage: React.FC = () => {
     } catch (error) {
       console.error('Error fetching workout logs:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
@@ -88,7 +88,7 @@ const WorkoutManagerPage: React.FC = () => {
       navigate('/login');
     }
     setLoading(false);
-  }, [navigate]);
+  }, [navigate, fetchWorkouts, fetchWorkoutLogs]);
 
   const handleCreateWorkout = async (e: React.FormEvent) => {
     e.preventDefault();

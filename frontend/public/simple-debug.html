@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 10px 0; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        button { background: #13ec5b; color: black; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        pre { background: #f0f0f0; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Simple Debug</h1>
+    
+    <div class="container">
+        <h2>1. Test Backend Connection</h2>
+        <button onclick="testBackend()">🌐 Test Backend</button>
+        <div id="backendResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>2. Test Login</h2>
+        <button onclick="testLogin()">🔑 Test Login</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>3. Test Create Workout</h2>
+        <button onclick="testCreateWorkout()">🏋️ Test Create</button>
+        <div id="createResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>4. Test Get Workouts</h2>
+        <button onclick="testGetWorkouts()">📋 Test Get</button>
+        <div id="getResult"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let token = '';
+
+        function showResult(id, message, isError = false) {
+            document.getElementById(id).innerHTML = `<div class="${isError ? 'error' : 'success'}">${message}</div>`;
+        }
+
+        function showJSON(id, data) {
+            document.getElementById(id).innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+
+        async function testBackend() {
+            try {
+                showResult('backendResult', '🔄 Testing backend...');
+                
+                const response = await fetch('http://localhost:8000');
+                const text = await response.text();
+                
+                if (response.ok) {
+                    showResult('backendResult', '✅ Backend is running!');
+                } else {
+                    showResult('backendResult', `❌ Backend error: ${response.status}`, true);
+                }
+                
+                showJSON('backendResult', { status: response.status, response: text });
+            } catch (error) {
+                showResult('backendResult', `❌ Backend error: ${error.message}`, true);
+                console.error('Backend test error:', error);
+            }
+        }
+
+        async function testLogin() {
+            try {
+                showResult('loginResult', '🔄 Testing login...');
+                
+                const response = await fetch(`${API_BASE}/users/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: 'test@example.com', 
+                        password: 'password123' 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    token = data.token;
+                    localStorage.setItem('token', token);
+                    showResult('loginResult', '✅ Login successful!');
+                } else {
+                    showResult('loginResult', `❌ Login failed: ${data.message}`, true);
+                }
+                
+                showJSON('loginResult', data);
+            } catch (error) {
+                showResult('loginResult', `❌ Login error: ${error.message}`, true);
+                console.error('Login test error:', error);
+            }
+        }
+
+        async function testCreateWorkout() {
+            try {
+                if (!token) {
+                    showResult('createResult', '❌ No token! Please login first.', true);
+                    return;
+                }
+                
+                showResult('createResult', '🔄 Testing create workout...');
+                
+                const workoutData = {
+                    name: 'Debug Workout',
+                    description: 'Workout for debugging',
+                    category: 'Strength',
+                    duration: 30,
+                    calories: 200,
+                    difficulty: 'Beginner'
+                };
+                
+                console.log('Creating workout with token:', token);
+                console.log('Workout data:', workoutData);
+                
+                const response = await fetch(`${API_BASE}/workouts`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(workoutData)
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (response.ok) {
+                    showResult('createResult', '✅ Create workout successful!');
+                } else {
+                    showResult('createResult', `❌ Create failed: ${data.message}`, true);
+                }
+                
+                showJSON('createResult', data);
+            } catch (error) {
+                showResult('createResult', `❌ Create error: ${error.message}`, true);
+                console.error('Create workout error:', error);
+            }
+        }
+
+        async function testGetWorkouts() {
+            try {
+                if (!token) {
+                    showResult('getResult', '❌ No token! Please login first.', true);
+                    return;
+                }
+                
+                showResult('getResult', '🔄 Testing get workouts...');
+                
+                const response = await fetch(`${API_BASE}/workouts`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                console.log('Get workouts response status:', response.status);
+                
+                const data = await response.json();
+                console.log('Get workouts data:', data);
+                
+                if (response.ok) {
+                    showResult('getResult', `✅ Get workouts successful! Found ${data.length} workouts.`);
+                } else {
+                    showResult('getResult', `❌ Get failed: ${data.message}`, true);
+                }
+                
+                showJSON('getResult', data);
+            } catch (error) {
+                showResult('getResult', `❌ Get error: ${error.message}`, true);
+                console.error('Get workouts error:', error);
+            }
+        }
+    </script>
+</body>
+</html>
