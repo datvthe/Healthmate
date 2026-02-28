@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Navbar from "../components/Navbar";
+import Layout from "../components/Layout";
 import { getWorkouts, createWorkout } from "../services/workoutService";
 import type { Workout } from "../services/workoutService";
 import { getCategories } from "../services/categoryService";
@@ -113,8 +113,9 @@ const handleCreateWorkout = async () => {
   }
 };
   return (
+    <Layout>
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950">
-      <Navbar />
+      
 
       <div className="px-10 py-10 max-w-7xl mx-auto flex flex-col gap-8">
 
@@ -405,6 +406,7 @@ const handleCreateWorkout = async () => {
 )}
 
   </div>
+  </Layout>
 );
 };
 
