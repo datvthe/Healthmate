@@ -162,14 +162,14 @@ const AdminFoodFormPage = () => {
     } else {
       try {
         const res = await fetch(
-          `http://localhost:8000/api/foods?name=${encodeURIComponent(formData.name.trim())}`,
+          `http://localhost:8000/api/foods?search=${encodeURIComponent(formData.name.trim())}`,
           { credentials: 'include' }
         );
         const data = await res.json();
         const duplicate = Array.isArray(data)
-          ? data.find((f: { id?: number | string; name?: string }) =>
+          ? data.find((f: { _id?: string; id?: number | string; name?: string }) =>
               f.name?.toLowerCase() === formData.name.trim().toLowerCase() &&
-              (!isEditMode || String(f.id) !== id)
+              (!isEditMode || (String(f._id || f.id) !== id))
             )
           : null;
         if (duplicate) {
