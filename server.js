@@ -1,4 +1,5 @@
 require("dotenv").config();
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const connectDB = require("./config/db");
@@ -16,6 +17,8 @@ app.use(
   }),
 );
 app.use(express.json());
+// Serve ảnh upload tĩnh: GET /uploads/foods/filename.jpg
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 app.use("/api/workouts", workoutRoutes);
 app.use("/api/workout-categories", workoutCategoryRoutes);
 
