@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Layout from '../components/Layout'; // Giả sử bạn đã có Layout bọc Navbar/Footer
 
 const AiCoachPage = () => {

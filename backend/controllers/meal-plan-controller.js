@@ -1,5 +1,9 @@
+const mongoose = require('mongoose');
 const MealPlan = require('../models/MealPlan');
 const Food = require('../models/Food');
+
+// ID tạm dùng khi chưa đăng nhập (tạm thời bỏ yêu cầu auth)
+const GUEST_USER_ID = new mongoose.Types.ObjectId('000000000000000000000001');
 
 const recalculateTotalCalories = (items) => {
   return items.reduce((total, item) => total + (item.calories || 0), 0);
@@ -14,11 +18,7 @@ const parseDate = (dateStr) => {
 const getMealPlanByDate = async (req, res) => {
   try {
     const { date } = req.params;
-    const userId = req.user?._id;
-
-    if (!userId) {
-      return res.status(401).json({ message: 'Vui lòng đăng nhập' });
-    }
+    const userId = req.user?._id || GUEST_USER_ID;
 
     const targetDate = parseDate(date);
     const mealPlan = await MealPlan.findOne({ user_id: userId, date: targetDate });
@@ -37,11 +37,7 @@ const addFoodToMealPlan = async (req, res) => {
   try {
     const { date } = req.params;
     const { food_id, quantity } = req.body;
-    const userId = req.user?._id;
-
-    if (!userId) {
-      return res.status(401).json({ message: 'Vui lòng đăng nhập' });
-    }
+    const userId = req.user?._id || GUEST_USER_ID;
 
     if (!food_id || !quantity || quantity <= 0) {
       return res.status(400).json({ message: 'Vui lòng cung cấp food_id và quantity hợp lệ' });
@@ -74,11 +70,7 @@ const addFoodToMealPlan = async (req, res) => {
 const removeFoodFromMealPlan = async (req, res) => {
   try {
     const { date, itemId } = req.params;
-    const userId = req.user?._id;
-
-    if (!userId) {
-      return res.status(401).json({ message: 'Vui lòng đăng nhập' });
-    }
+    const userId = req.user?._id || GUEST_USER_ID;
 
     const targetDate = parseDate(date);
     const mealPlan = await MealPlan.findOne({ user_id: userId, date: targetDate });
@@ -106,11 +98,7 @@ const updateFoodQuantity = async (req, res) => {
   try {
     const { date, itemId } = req.params;
     const { quantity } = req.body;
-    const userId = req.user?._id;
-
-    if (!userId) {
-      return res.status(401).json({ message: 'Vui lòng đăng nhập' });
-    }
+    const userId = req.user?._id || GUEST_USER_ID;
 
     if (!quantity || quantity <= 0) {
       return res.status(400).json({ message: 'Số lượng phải lớn hơn 0' });

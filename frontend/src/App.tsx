@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './components/ProtectedRoute'; // Import chú bảo vệ
 
 // --- Import các trang ---
@@ -18,6 +19,28 @@ import OnboardingPage from './pages/OnboardingPage';
 export default function App() {
   return (
     <BrowserRouter>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#1e293b',
+            color: '#f1f5f9',
+          },
+          success: {
+            iconTheme: {
+              primary: '#a3e635',
+              secondary: '#1e293b',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#1e293b',
+            },
+          },
+        }}
+      />
       <Routes>
         
         {/*PUBLIC ROUTES */}
