@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Test - Authentication</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 10px 0; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+        button { background: #13ec5b; color: black; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        input { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; }
+        pre { background: #f0f0f0; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Quick Test - Authentication & Workout</h1>
+    
+    <div class="container">
+        <h2>Step 1: Register New User</h2>
+        <input type="email" id="regEmail" placeholder="Email" value="testuser@example.com">
+        <input type="password" id="regPassword" placeholder="Password" value="password123">
+        <button onclick="register()">📝 Register</button>
+        <div id="regResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 2: Login</h2>
+        <input type="email" id="loginEmail" placeholder="Email" value="testuser@example.com">
+        <input type="password" id="loginPassword" placeholder="Password" value="password123">
+        <button onclick="login()">🔑 Login</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 3: Test Workout API</h2>
+        <button onclick="testWorkout()">💪 Test Workout API</button>
+        <button onclick="testDashboard()">📊 Test Dashboard</button>
+        <div id="workoutResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 4: Check Token</h2>
+        <button onclick="checkToken()">🔍 Check Current Token</button>
+        <button onclick="clearToken()">🗑️ Clear Token</button>
+        <div id="tokenResult"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+
+        function showResult(id, message, isError = false) {
+            document.getElementById(id).innerHTML = `<div class="${isError ? 'error' : 'success'}">${message}</div>`;
+        }
+
+        function showJSON(id, data) {
+            document.getElementById(id).innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+
+        async function register() {
+            try {
+                const email = document.getElementById('regEmail').value;
+                const password = document.getElementById('regPassword').value;
+                
+                const response = await fetch(`${API_BASE}/users/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        name: 'Test User',
+                        age: 25,
+                        gender: 'male',
+                        height: 175,
+                        weight: 75,
+                        goal: 'gain_muscle'
+                    })
+                });
+                
+                const data = await response.json();
+                showJSON('regResult', data);
+                
+                if (response.ok) {
+                    showResult('regResult', '✅ Registration successful! Now login.');
+                } else {
+                    showResult('regResult', `❌ Registration failed: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('regResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function login() {
+            try {
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                
+                const response = await fetch(`${API_BASE}/users/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                showJSON('loginResult', data);
+                
+                if (response.ok) {
+                    localStorage.setItem('test_token', data.token);
+                    showResult('loginResult', `✅ Login successful! Token saved.`);
+                } else {
+                    showResult('loginResult', `❌ Login failed: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('loginResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function testWorkout() {
+            try {
+                const token = localStorage.getItem('test_token');
+                if (!token) {
+                    showResult('workoutResult', '❌ No token found! Please login first.', true);
+                    return;
+                }
+                
+                // First try to save a workout
+                const saveResponse = await fetch(`${API_BASE}/tracker/workouts`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        workout_id: "64f1a2b3c4d5e6f7g8h9i0j1",
+                        duration_minutes: 45,
+                        calories_burned: 350,
+                        notes: "Test workout from quick test"
+                    })
+                });
+                
+                const saveData = await saveResponse.json();
+                
+                if (saveResponse.ok) {
+                    showResult('workoutResult', '✅ Workout saved successfully!');
+                    
+                    // Now try to get workout logs
+                    const getResponse = await fetch(`${API_BASE}/tracker/workouts?period=week`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    const getData = await getResponse.json();
+                    showJSON('workoutResult', {
+                        saveResult: saveData,
+                        getResult: getData
+                    });
+                    
+                    if (getResponse.ok) {
+                        showResult('workoutResult', `✅ Found ${getData.workoutLogs.length} workout logs`);
+                    }
+                } else {
+                    showResult('workoutResult', `❌ Save workout failed: ${saveData.message}`, true);
+                    showJSON('workoutResult', saveData);
+                }
+            } catch (error) {
+                showResult('workoutResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function testDashboard() {
+            try {
+                const token = localStorage.getItem('test_token');
+                if (!token) {
+                    showResult('workoutResult', '❌ No token found! Please login first.', true);
+                    return;
+                }
+                
+                const response = await fetch(`${API_BASE}/tracker/dashboard-stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                showJSON('workoutResult', data);
+                
+                if (response.ok) {
+                    showResult('workoutResult', '✅ Dashboard stats loaded successfully!');
+                } else {
+                    showResult('workoutResult', `❌ Dashboard failed: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('workoutResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        function checkToken() {
+            const token = localStorage.getItem('test_token');
+            if (token) {
+                showResult('tokenResult', `✅ Token found: ${token.substring(0, 30)}...`);
+                showJSON('tokenResult', { 
+                    tokenLength: token.length,
+                    tokenStart: token.substring(0, 50),
+                    tokenEnd: token.substring(token.length - 20)
+                });
+            } else {
+                showResult('tokenResult', '❌ No token found in localStorage', true);
+            }
+        }
+
+        function clearToken() {
+            localStorage.removeItem('test_token');
+            showResult('tokenResult', '✅ Token cleared from localStorage');
+        }
+
+        // Check connection on load
+        window.onload = function() {
+            fetch(`${API_BASE}/users/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: 'test@test.com', password: 'test' })
+            }).then(response => {
+                if (response.status === 401 || response.status === 400) {
+                    document.body.innerHTML += '<div class="container success">✅ Backend is running on port 8000</div>';
+                }
+            }).catch(() => {
+                document.body.innerHTML += '<div class="container error">❌ Backend is NOT running on port 8000</div>';
+            });
+            
+            checkToken();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Workout Issue</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 10px 0; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        button { background: #13ec5b; color: black; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        input, select { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; }
+        pre { background: #f0f0f0; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Workout Issue</h1>
+    
+    <div class="container">
+        <h2>Step 1: Kiểm Tra Token Hiện Tại</h2>
+        <button onclick="checkToken()">🔑 Kiểm Tra Token</button>
+        <div id="tokenResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 2: Login Mới để Lấy Token Mới</h2>
+        <button onclick="newLogin()">🔄 Login Mới</button>
+        <div id="newLoginResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 3: Tạo Workout với Token Mới</h2>
+        <button onclick="testCreateWorkout()">🏋️ Test Tạo Workout</button>
+        <div id="createResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 4: Test Workout Log</h2>
+        <button onclick="testWorkoutLog()">📝 Test Workout Log</button>
+        <div id="logResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 5: Mở Workout Manager với Token Mới</h2>
+        <button onclick="openWorkoutManager()">🚀 Mở Workout Manager</button>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let currentToken = '';
+
+        function showResult(id, message, isError = false) {
+            document.getElementById(id).innerHTML = `<div class="${isError ? 'error' : 'success'}">${message}</div>`;
+        }
+
+        function showJSON(id, data) {
+            document.getElementById(id).innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+
+        function checkToken() {
+            const savedToken = localStorage.getItem('token');
+            if (savedToken) {
+                showResult('tokenResult', `✅ Token tồn tại: ${savedToken.substring(0, 50)}...`);
+            } else {
+                showResult('tokenResult', '❌ Không có token trong localStorage!', true);
+            }
+        }
+
+        async function newLogin() {
+            try {
+                showResult('newLoginResult', '🔄 Đang login mới...');
+                
+                const response = await fetch(`${API_BASE}/users/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: 'test@example.com', 
+                        password: 'password123' 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    currentToken = data.token;
+                    localStorage.setItem('token', currentToken);
+                    showResult('newLoginResult', '✅ Login mới thành công! Token đã cập nhật.');
+                } else {
+                    showResult('newLoginResult', `❌ Login thất bại: ${data.message}`, true);
+                }
+                
+                showJSON('newLoginResult', data);
+            } catch (error) {
+                showResult('newLoginResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function testCreateWorkout() {
+            try {
+                if (!currentToken) {
+                    currentToken = localStorage.getItem('token');
+                }
+                
+                if (!currentToken) {
+                    showResult('createResult', '❌ Cần login trước!', true);
+                    return;
+                }
+                
+                showResult('createResult', '🔄 Đang tạo workout...');
+                
+                const workoutData = {
+                    name: 'Debug Workout',
+                    description: 'Workout để debug lỗi',
+                    category: 'Strength',
+                    duration: 30,
+                    calories: 200,
+                    difficulty: 'Beginner'
+                };
+                
+                console.log('Sending request with token:', currentToken);
+                console.log('Request data:', workoutData);
+                
+                const response = await fetch(`${API_BASE}/workouts`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(workoutData)
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (response.ok) {
+                    showResult('createResult', '✅ Tạo workout thành công!');
+                } else {
+                    showResult('createResult', `❌ Tạo workout thất bại: ${data.message}`, true);
+                }
+                
+                showJSON('createResult', data);
+            } catch (error) {
+                console.error('Fetch error:', error);
+                showResult('createResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        async function testWorkoutLog() {
+            try {
+                if (!currentToken) {
+                    currentToken = localStorage.getItem('token');
+                }
+                
+                if (!currentToken) {
+                    showResult('logResult', '❌ Cần login trước!', true);
+                    return;
+                }
+                
+                showResult('logResult', '🔄 Đang test workout log...');
+                
+                // First create a workout to get ID
+                const createResponse = await fetch(`${API_BASE}/workouts`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: 'Test for Log',
+                        description: 'Workout để test log',
+                        category: 'Cardio',
+                        duration: 20,
+                        calories: 150,
+                        difficulty: 'Beginner'
+                    })
+                });
+                
+                const workoutData = await createResponse.json();
+                
+                if (createResponse.ok) {
+                    const workoutId = workoutData._id;
+                    
+                    // Now test logging this workout
+                    const logResponse = await fetch(`${API_BASE}/tracker/workouts`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${currentToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            workout_id: workoutId,
+                            duration_minutes: 25,
+                            calories_burned: 180,
+                            notes: 'Debug workout log'
+                        })
+                    });
+                    
+                    const logData = await logResponse.json();
+                    
+                    if (logResponse.ok) {
+                        showResult('logResult', '✅ Tạo workout log thành công!');
+                    } else {
+                        showResult('logResult', `❌ Tạo workout log thất bại: ${logData.message}`, true);
+                    }
+                    
+                    showJSON('logResult', logData);
+                } else {
+                    showResult('logResult', `❌ Tạo workout thất bại: ${workoutData.message}`, true);
+                }
+                
+            } catch (error) {
+                console.error('Fetch error:', error);
+                showResult('logResult', `❌ Error: ${error.message}`, true);
+            }
+        }
+
+        function openWorkoutManager() {
+            // Mở với token mới
+            window.open('http://localhost:5173/workouts', '_blank');
+        }
+
+        // Auto-check token on load
+        window.onload = function() {
+            checkToken();
+        };
+    </script>
+</body>
+</html>

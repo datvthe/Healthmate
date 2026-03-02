@@ -1,49 +1,66 @@
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+
 const Navbar = () => {
+  const navigate = useNavigate();
+  
+  // Lấy thông tin user hiện tại
+  const token = localStorage.getItem('token');
+  const userString = localStorage.getItem('user');
+  const user = userString ? JSON.parse(userString) : null;
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login'); // Đăng xuất xong đá về trang đăng nhập
+  };
+
   return (
     <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-10 py-3 sticky top-0 z-50">
       <div className="flex items-center gap-8">
         {/* Logo */}
-        <div className="flex items-center gap-4 text-slate-900 dark:text-slate-100">
+        <Link to="/homepage" className="flex items-center gap-4 text-slate-900 dark:text-slate-100">
           <div className="size-6 text-primary">
             <span className="material-symbols-outlined text-3xl">exercise</span>
           </div>
           <h2 className="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-[-0.015em]">HealthMate</h2>
-        </div>
-        
-        {/* Search Bar */}
-        <label className="flex flex-col min-w-40 !h-10 max-w-64">
-          <div className="flex w-full flex-1 items-stretch rounded-lg h-full">
-            <div className="text-slate-500 flex border-none bg-slate-100 dark:bg-slate-800 items-center justify-center pl-4 rounded-l-lg" data-icon="MagnifyingGlass">
-              <span className="material-symbols-outlined">search</span>
-            </div>
-            <input 
-              className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-slate-900 dark:text-slate-100 focus:outline-0 focus:ring-0 border-none bg-slate-100 dark:bg-slate-800 focus:border-none h-full placeholder:text-slate-500 px-4 rounded-l-none border-l-0 pl-2 text-base font-normal" 
-              placeholder="Search exercises..." 
-              defaultValue=""
-            />
-          </div>
-        </label>
+        </Link>
       </div>
 
-      <div className="flex flex-1 justify-end gap-8">
+      <div className="flex flex-1 justify-end gap-8 items-center">
         {/* Navigation Links */}
         <nav className="flex items-center gap-9">
-          <a className="text-slate-600 dark:text-slate-400 hover:text-primary text-sm font-medium leading-normal transition-colors" href="/dashboard">Dashboard</a>
-          <a className="text-primary text-sm font-medium leading-normal" href="/workouts">Workouts</a>
-          <a className="text-slate-600 dark:text-slate-400 hover:text-primary text-sm font-medium leading-normal transition-colors" href="/nutrition">Nutrition</a>
-          <a className="text-slate-600 dark:text-slate-400 hover:text-primary text-sm font-medium leading-normal transition-colors" href="/community">Community</a>
-          <a className="text-slate-600 dark:text-slate-400 hover:text-primary text-sm font-medium leading-normal transition-colors" href="/progress">Progress</a>
+          <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/dashboard">Dashboard</Link>
+          <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/workouts">Workouts</Link>
+          <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/aicoach">AI Coach</Link>
         </nav>
         
-        {/* Actions & Profile */}
-        <button className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-primary text-slate-900 text-sm font-bold leading-normal tracking-[0.015em] hover:opacity-90 transition-opacity">
-          <span className="truncate">Upgrade to Pro</span>
-        </button>
-        <div 
-          className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary" 
-          data-alt="User profile avatar portrait" 
-          style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAuDqZ5uDyrASPI6hEP-S1LQatHTCfKWKhc7rgraISZ4VminkXl4rwRb7vpFal3rXDMCaVONmmeVdJaa-GY93IYikdSOHCFwShaw9TubquRp73-LS0_GaWE2Miu1mgylPyEIfqcECGt1cWygakaUWuMvrnR-zlbyoY87hPWM8Hrdc-BJufYHfV1Dyth3NHdYUv4GQ8ISX9nMMh3NDV65-jDsgHjnCNvT_DzJO_b-2zcZr7f2XuNgBEYfXmDf43o64uMJAamin93nPo")' }}
-        ></div>
+        {/* Actions & Profile (Thay đổi theo trạng thái Login) */}
+        {token ? (
+          <div className="flex items-center gap-4">
+             <span className="text-sm font-medium text-slate-600">
+               Hi, {user?.profile?.full_name || 'User'}
+             </span>
+             <button onClick={handleLogout} className="text-sm font-bold text-red-500 hover:text-red-700">
+               Đăng xuất
+             </button>
+             {/* Bọc thẻ Link để click vào Avatar chuyển sang Profile */}
+             <Link to="/profile">
+               <div 
+                  className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary hover:opacity-80 transition-opacity cursor-pointer" 
+                  data-alt="User profile" 
+                  style={{ backgroundImage: `url(${user?.profile?.picture || "https://www.svgrepo.com/show/5125/avatar.svg"})` }}
+                ></div>
+             </Link>
+          </div>
+        ) : (
+          <div className="flex items-center gap-4">
+             <Link to="/login" className="text-sm font-bold text-slate-600 hover:text-primary">Đăng nhập</Link>
+             <Link to="/register" className="flex items-center justify-center rounded-lg h-10 px-4 bg-primary text-slate-900 text-sm font-bold hover:opacity-90 transition-opacity">
+               Đăng ký
+             </Link>
+          </div>
+        )}
       </div>
     </header>
   );
