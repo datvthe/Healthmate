@@ -14,6 +14,7 @@ import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 import HomePage from './pages/HomePage';
 import OnboardingPage from './pages/OnboardingPage';
+import FitnessGoal from './pages/FitnessGoals';
 
 export default function App() {
   return (
@@ -27,21 +28,21 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
+        <Route path="/fitness-goals" element={<FitnessGoal />} />
 
-
-       
         {/*  PROTECTED ROUTES (Bắt buộc đăng nhập)*/}
-        
+        {/* User routes */}
         <Route element={<ProtectedRoute />}>
-          {/* user */}
           <Route path="/aicoach" element={<AiCoachPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/foods" element={<FoodCatalogPage />} />
           <Route path="/meal-planner" element={<MealPlannerPage />} />
           <Route path="/workouts" element={<WorkoutsPage />} />
           <Route path="/workouts/:id" element={<WorkoutDetailPage />} />
-          
-          {/* Admin */}
+        </Route>
+
+        {/* Admin routes */}
+        <Route element={<ProtectedRoute requiredRole="admin" />}>
           <Route path="/dashboard" element={<AdminDashboardPage />} />
           <Route path="/dashboard/foods/new" element={<AdminFoodFormPage />} />
         </Route>

@@ -20,8 +20,18 @@ const protect = async (req, res, next) => {
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Lưu thông tin user id vào req để controller sử dụng
-      req.user = { id: decoded.id };
+      // Tải đầy đủ thông tin user để dùng cho phân quyền
+      const user = await User.findById(decoded.id).select('-password_hash');
+
+      if (!user) {
+        return res.status(401).json({ message: 'Người dùng không tồn tại.' });
+      }
+
+      if (user.status === 'banned') {
+        return res.status(403).json({ message: 'Tài khoản của bạn đã bị khóa.' });
+      }
+
+      req.user = user;
 
       return next();
     } catch (error) {
@@ -34,7 +44,16 @@ const protect = async (req, res, next) => {
   }
 };
 
+// Middleware chỉ cho phép admin truy cập
+const requireAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Chỉ admin mới được phép thực hiện thao tác này.' });
+  }
+  next();
+};
+
 module.exports = {
-  protect
+  protect,
+  requireAdmin
 };
 
