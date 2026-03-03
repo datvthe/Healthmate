@@ -34,9 +34,14 @@ const AdminFoodFormPage = () => {
     setLoading(true);
 
     try {
+      const token = localStorage.getItem('token');
+
       const response = await fetch('http://localhost:8000/api/foods', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         credentials: 'include',
         body: JSON.stringify({
           name: formData.name.trim(),

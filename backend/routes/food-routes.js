@@ -7,14 +7,15 @@ const {
   updateFood,
   deleteFood
 } = require('../controllers/food-controller');
+const { protect, requireAdmin } = require('../middleware/authMiddleware');
 
 // Public routes
 router.get('/', getAllFoods);
 router.get('/:id', getFoodById);
 
-// Admin routes (cần auth middleware gắn req.user)
-router.post('/', createFood);
-router.put('/:id', updateFood);
-router.delete('/:id', deleteFood);
+// Admin routes (cần auth + quyền admin)
+router.post('/', protect, requireAdmin, createFood);
+router.put('/:id', protect, requireAdmin, updateFood);
+router.delete('/:id', protect, requireAdmin, deleteFood);
 
 module.exports = router;
