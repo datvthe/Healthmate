@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -44,6 +45,11 @@ const MicroGoalItem = ({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const FitnessGoal = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+  const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+  const displayName = parsedUser?.profile?.full_name || 'User';
   const [motivation, setMotivation] = useState(
     "I want to feel stronger and improve my posture for my wedding in December. It's about confidence and long-term health."
   );
@@ -68,7 +74,7 @@ const FitnessGoal = () => {
           {/* ── Sidebar ── */}
           <aside className="w-64 border-r border-primary/5 bg-white dark:bg-slate-900 p-6 flex-col gap-6 hidden xl:flex">
             <div className="flex flex-col gap-1">
-              <h3 className="text-slate-900 dark:text-white font-bold">Alex Johnson</h3>
+              <h3 className="text-slate-900 dark:text-white font-bold">{displayName}</h3>
               <p className="text-primary text-xs font-semibold uppercase tracking-wider">
                 Premium Member
               </p>
@@ -76,24 +82,31 @@ const FitnessGoal = () => {
 
             <nav className="flex flex-col gap-2">
               {[
-                { icon: 'grid_view', label: 'Overview' },
-                { icon: 'person', label: 'Profile Settings' },
-                { icon: 'ads_click', label: 'Fitness Goals', active: true },
-                { icon: 'analytics', label: 'Assessments' },
-                { icon: 'calendar_month', label: 'Schedules' },
-              ].map(({ icon, label, active }) => (
-                <button
-                  key={label}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${
-                    active
-                      ? 'bg-primary text-slate-900 font-bold shadow-lg shadow-primary/20'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  <Icon name={icon} className="text-lg" />
-                  <span className="text-sm">{label}</span>
-                </button>
-              ))}
+                { icon: 'grid_view', label: 'Overview', path: '/overview' },
+                { icon: 'person_edit', label: 'Profile Settings', path: '/profile' },
+                { icon: 'ads_click', label: 'Fitness Goals', path: '/fitness-goals' },
+                { icon: 'analytics', label: 'Assessments', path: '/overview' },
+                { icon: 'calendar_month', label: 'Schedules', path: '/schedule' },
+              ].map(({ icon, label, path }) => {
+                const isActive = path ? location.pathname === path : false;
+                const isClickable = Boolean(path);
+
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => path && navigate(path)}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${
+                      isActive
+                        ? 'bg-primary text-slate-900 font-bold shadow-lg shadow-primary/20'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    } ${!isClickable ? 'cursor-default' : ''}`}
+                  >
+                    <Icon name={icon} className="text-lg" />
+                    <span className="text-sm">{label}</span>
+                  </button>
+                );
+              })}
             </nav>
 
             <div className="mt-auto p-4 rounded-xl bg-primary/10 border border-primary/20">

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 const Navbar = () => {
@@ -30,7 +29,7 @@ const Navbar = () => {
       <div className="flex flex-1 justify-end gap-8 items-center">
         {/* Navigation Links */}
         <nav className="flex items-center gap-9">
-          <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/profile">Dashboard</Link>
+          <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/overview">Dashboard</Link>
           <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/workouts">Workouts</Link>
           <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/aicoach">AI Coach</Link>
         </nav>
