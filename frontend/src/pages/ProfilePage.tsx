@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 
 interface Profile {
@@ -20,6 +20,7 @@ interface UserResponse {
 
 const ProfilePage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState<UserResponse | null>(null);
   const [fullName, setFullName] = useState('');
   const [gender, setGender] = useState<Profile['gender'] | ''>('');
@@ -162,24 +163,31 @@ const ProfilePage = () => {
             </div>
             <nav className="flex flex-col gap-2">
               {[
-                { icon: 'grid_view', label: 'Overview' },
-                { icon: 'person_edit', label: 'Profile Settings', active: true },
-                { icon: 'ads_click', label: 'Fitness Goals' },
+                { icon: 'grid_view', label: 'Overview', path: '/overview' },
+                { icon: 'person_edit', label: 'Profile Settings', path: '/profile' },
+                { icon: 'ads_click', label: 'Fitness Goals', path: '/fitness-goals' },
                 { icon: 'analytics', label: 'Assessments' },
-                { icon: 'calendar_month', label: 'Schedules' },
-              ].map(({ icon, label, active }) => (
-                <button
-                  key={label}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${
-                    active
-                      ? 'bg-primary text-slate-900 font-bold shadow-lg shadow-primary/20'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-lg">{icon}</span>
-                  <span className="text-sm">{label}</span>
-                </button>
-              ))}
+                { icon: 'calendar_month', label: 'Schedules', path: '/schedule' },
+              ].map(({ icon, label, path }) => {
+                const isActive = path ? location.pathname === path : false;
+                const isClickable = Boolean(path);
+
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => path && navigate(path)}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all ${
+                      isActive
+                        ? 'bg-primary text-slate-900 font-bold shadow-lg shadow-primary/20'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    } ${!isClickable ? 'cursor-default' : ''}`}
+                  >
+                    <span className="material-symbols-outlined text-lg">{icon}</span>
+                    <span className="text-sm">{label}</span>
+                  </button>
+                );
+              })}
             </nav>
             <div className="mt-auto p-4 rounded-xl bg-primary/10 border border-primary/20">
               <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-2">

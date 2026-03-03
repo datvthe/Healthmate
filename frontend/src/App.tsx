@@ -15,6 +15,8 @@ import ProfilePage from './pages/ProfilePage';
 import HomePage from './pages/HomePage';
 import OnboardingPage from './pages/OnboardingPage';
 import FitnessGoal from './pages/FitnessGoals';
+import SchedulePage from './pages/SchedulePage';
+import OverviewPage from './pages/Overviewpage';
 
 export default function App() {
   return (
@@ -28,7 +30,8 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
-        <Route path="/fitness-goals" element={<FitnessGoal />} />
+
+
 
         {/*  PROTECTED ROUTES (Bắt buộc đăng nhập)*/}
         {/* User routes */}
@@ -39,6 +42,9 @@ export default function App() {
           <Route path="/meal-planner" element={<MealPlannerPage />} />
           <Route path="/workouts" element={<WorkoutsPage />} />
           <Route path="/workouts/:id" element={<WorkoutDetailPage />} />
+          <Route path="/fitness-goals" element={<FitnessGoal />} />
+          <Route path="/schedule" element={<SchedulePage />} />
+          <Route path='/overview' element={<OverviewPage />} />
         </Route>
 
         {/* Admin routes */}

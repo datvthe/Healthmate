@@ -1,192 +1,157 @@
-import Layout from '../components/Layout';
+import Footer from "../components/Footer";
+import Navbar from "../components/Navbar";
 
 const HomePage = () => {
     return (
-        <Layout>
-            <div className="p-4 md:p-8">
-                {/* Personalized Greeting */}
-                <div className="mb-10">
-                    <h2 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">Good Morning, Alex!</h2>
-                    <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">
-                        You're <span className="text-primary font-bold">75%</span> of the way to your daily goal. Keep it up!
-                    </p>
+      <div className="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100">
+  
+        {/* ── Navbar ── */}
+        <Navbar/>
+  
+        <main className="flex-1">
+  
+          {/* ── Hero Section ── */}
+          <section>
+            <div className="p-0 md:p-10">
+              <div
+                className="flex min-h-[600px] flex-col gap-8 bg-cover bg-center bg-no-repeat rounded-none md:rounded-xl items-center justify-center p-8 relative overflow-hidden"
+                style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.7) 100%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuBYot3hAiwKRtjMeMMa4Ym8nw9ICFWq_LIwg-wQl3OjwQQxN-bPiVwYZ8uOVCaXw817ahjDPR4RiFuQydq8L7BgHgueOANl-IBg_-T2qosAywnUPNogYLtERgErp8hq5fUlSsW2LBcd5-kl05bhCMODp1PJwbrMcTcsn5tabMLFXoShURYA8A5pXApi8QgKpyTj63MtJo3lJ5UKDhd3UUk6TPDDOTb85y5Hd2vjQ9tnf3T2bIglrnl0MntHTEPM9EdmzhuL7HGpbkU")` }}
+              >
+                <div className="flex flex-col gap-4 text-center max-w-[800px] relative z-10">
+                  <span className="bg-primary/20 border border-primary/30 text-primary px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest self-center">
+                    Next-Gen Fitness
+                  </span>
+                  <h1 className="text-white text-5xl md:text-7xl font-black leading-[1.1] tracking-tight">
+                    Your AI-Powered Journey to a <span className="text-primary">Healthier You</span>
+                  </h1>
+                  <p className="text-slate-200 text-lg md:text-xl font-normal leading-relaxed max-w-[600px] mx-auto">
+                    Personalized fitness and nutrition plans powered by advanced AI to help you reach your goals faster with 24/7 expert guidance.
+                  </p>
                 </div>
-
-                {/* Stats Overview */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="w-12 h-12 rounded-xl bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center">
-                                <span className="material-symbols-outlined">local_fire_department</span>
-                            </div>
-                            <p className="font-semibold text-slate-600 dark:text-slate-400">Calories Burned</p>
-                        </div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-3xl font-black text-slate-900 dark:text-white">1,840</span>
-                            <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">kcal</span>
-                        </div>
-                        <div className="mt-4 flex items-center gap-2 text-primary font-bold text-sm">
-                            <span className="material-symbols-outlined text-sm">trending_up</span>
-                            <span>+12% from yesterday</span>
-                        </div>
-                    </div>
-
-                    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                                <span className="material-symbols-outlined">directions_walk</span>
-                            </div>
-                            <p className="font-semibold text-slate-600 dark:text-slate-400">Steps Taken</p>
-                        </div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-3xl font-black text-slate-900 dark:text-white">8,245</span>
-                            <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">/ 10,000</span>
-                        </div>
-                        <div className="mt-4 w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                            <div className="bg-blue-500 h-full w-[82%] rounded-full" />
-                        </div>
-                    </div>
-
-                    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="w-12 h-12 rounded-xl bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
-                                <span className="material-symbols-outlined">water_drop</span>
-                            </div>
-                            <p className="font-semibold text-slate-600 dark:text-slate-400">Water Intake</p>
-                        </div>
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-3xl font-black text-slate-900 dark:text-white">1.5</span>
-                            <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">/ 2.5 Liters</span>
-                        </div>
-                        <div className="mt-4 flex items-center gap-2 text-red-500 font-bold text-sm">
-                            <span className="material-symbols-outlined text-sm">warning</span>
-                            <span>-0.4L below target</span>
-                        </div>
-                    </div>
+                <div className="flex flex-col sm:flex-row gap-4 relative z-10">
+                  <button className="flex min-w-[200px] cursor-pointer items-center justify-center rounded-lg h-14 px-8 bg-primary text-slate-900 text-lg font-bold shadow-lg shadow-primary/20 transition-transform hover:scale-105">
+                    Start Your Free Trial
+                  </button>
+                  <button className="flex min-w-[200px] cursor-pointer items-center justify-center rounded-lg h-14 px-8 bg-white/10 backdrop-blur-md border border-white/20 text-white text-lg font-bold hover:bg-white/20">
+                    Watch How It Works
+                  </button>
                 </div>
-
-                {/* Main Content Area */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2 space-y-8">
-                        <div className="relative overflow-hidden rounded-3xl bg-slate-900 text-white p-8 group">
-                            <div className="absolute top-0 right-0 w-1/2 h-full">
-                                <img alt="Next Workout" className="w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBryS_rxmaZ9XU3n6odD4IxFFl5h_0A8FBG6WzcT0_QlhVhWP7nbgh3VzFFQoaBhxJPLa-r2FD1IA83drYxaNlFFgbn-V5tfoG9VhKPtjoXtwyg4tVaytbLvv3p6gCS9FslofRpiiZtuWIOVQkA_ddXUbpJPHYt8e5byTOhZZnzjvebKiGOQPIWAYOE6qP99IzVo3oVCGJpaDwt-VwCoxaL2Nqc6wzO3jfmfNn-B02NpStIglErwQkf_rxxAYvBvhyjo74rNP1IUrs" />
-                                <div className="absolute inset-0 bg-gradient-to-l from-transparent to-slate-900" />
-                            </div>
-
-                            <div className="relative z-10 max-w-sm">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold uppercase tracking-widest mb-4">
-                                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                                    Upcoming Today
-                                </div>
-                                <h3 className="text-3xl font-black mb-2">High Intensity Upper Body</h3>
-                                <p className="text-slate-400 mb-6">Level: Advanced • 45 Minutes • Burn ~450 kcal</p>
-                                <div className="flex gap-4">
-                                    <button className="bg-primary text-background-dark font-bold px-6 py-3 rounded-xl hover:brightness-110 transition-all flex items-center gap-2">
-                                        <span className="material-symbols-outlined">play_arrow</span>
-                                        Start Session
-                                    </button>
-                                    <button className="bg-white/10 backdrop-blur-md text-white border border-white/20 font-bold px-6 py-3 rounded-xl hover:bg-white/20 transition-all">
-                                        View Details
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Community Highlights */}
-                        <div>
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Community Highlights</h3>
-                                <a className="text-primary text-sm font-bold hover:underline" href="#">See all activity</a>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex gap-4">
-                                    <img alt="User Avatar" className="w-12 h-12 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPbHZ-gk49Pmu4-TZFiJ_44LzM0H4jeO1RdRy6-_3QJ509JHBF1ozN_22XyfTp9KGlQ0O0-ZVAjM-aJl3RdkwkTpB5DUifTdF5oXEu2HWtziX8QAZJYBKsfRw4ri2iknL5OyVuBYt5Qstgs3N51kZ-8HBUrdtz41tOVAipQDM5YZHWuw9AlOKSKUkkHwJVvUbIAK0OobwUHwEIvnAqmJYesBDcx7-bkQsWZySJcKPS_2y46F2I-_yOKxX3qhfWYtH4m2eT5R1uf54" />
-                                    <div>
-                                        <p className="text-sm text-slate-900 dark:text-white font-bold">Sarah J. <span className="font-normal text-slate-500">just hit a 30-day streak!</span></p>
-                                        <p className="text-xs text-slate-400 mt-1">2 mins ago • Consistency Queen</p>
-                                        <div className="flex gap-1 mt-2">
-                                            <button className="text-primary text-xs font-bold flex items-center gap-1"><span className="material-symbols-outlined text-sm">thumb_up</span> 14</button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex gap-4">
-                                    <img alt="User Avatar" className="w-12 h-12 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyipyg84YiYY6pnwWMJMB0Jlfbf3CHeU6l6mYQwUPiC5O08JFO1rED4xYwYDvLLOaUJxrDLigIvryVId_8mYierLNvAsxnGDbFBA6EA2GGVY8tO7hZgeOLl3LkBBccO6TuBy7bKwEgFUv4-5BeRn0UCQ8FLeNBN03rIEzVCcDKas7skyBd9OeGT_vv-N6CH2HUS6OB3RDZqwm_1H61HGc8_OCPGKrC7DH0pzE7B5KnrsWcNcpaHbZ9uUSLD05EvSolRuXev8Oryn8" />
-                                    <div>
-                                        <p className="text-sm text-slate-900 dark:text-white font-bold">Mike Chen <span className="font-normal text-slate-500">shared a new 'Quinoa Salad' recipe.</span></p>
-                                        <p className="text-xs text-slate-400 mt-1">15 mins ago • Nutrition Hub</p>
-                                        <div className="flex gap-1 mt-2">
-                                            <button className="text-primary text-xs font-bold flex items-center gap-1"><span className="material-symbols-outlined text-sm">chat</span> 8 comments</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Right Sidebar */}
-                    <div className="space-y-8">
-                        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                            <div className="p-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-primary">restaurant_menu</span>
-                                        AI Suggested Lunch
-                                    </h3>
-                                    <button className="text-slate-400 hover:text-slate-600">
-                                        <span className="material-symbols-outlined">refresh</span>
-                                    </button>
-                                </div>
-                                <div className="rounded-2xl overflow-hidden h-40 mb-4">
-                                    <img alt="Meal suggestion image" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCKB4k09hwtzgYnIoCOXhszCLZX7mAMZErFxItZrWXJ_kVkE5rdoGdiBHJP7SsPsr7aHEKvXxHNMBRvno0yqoi9XMYlC4YSbkQxKR53xLkXQXQQcBdyCFEj9i_CcGWhX95rnPcMDQU7iFV4TfkdqLCKvd3frdjm_pCLz-j9lPPrRLBP34OvMBti1yZP_P5FCbw1hHNjHP4sObqaCFSCRpChQzbZiWwwDvbL-fR-a0AWfQu3H0uiBTv-z3xtuZzKbTCmo78OU-ogQ6c" />
-                                </div>
-                                <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Avocado Buddha Bowl</h4>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Rich in healthy fats and proteins to keep you energized for your afternoon workout.</p>
-                                <div className="grid grid-cols-3 gap-2 mb-6">
-                                    <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-xl text-center">
-                                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter">Protein</p>
-                                        <p className="font-bold text-slate-900 dark:text-white">24g</p>
-                                    </div>
-                                    <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-xl text-center">
-                                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter">Carbs</p>
-                                        <p className="font-bold text-slate-900 dark:text-white">45g</p>
-                                    </div>
-                                    <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-xl text-center">
-                                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter">Fats</p>
-                                        <p className="font-bold text-slate-900 dark:text-white">18g</p>
-                                    </div>
-                                </div>
-                                <button className="w-full border-2 border-primary text-slate-900 dark:text-white font-bold py-3 rounded-xl hover:bg-primary transition-all">Add to Journal</button>
-                            </div>
-                        </div>
-
-                        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="font-bold text-slate-900 dark:text-white">Weekly Performance</h3>
-                                <select className="bg-transparent border-none text-xs font-bold text-primary focus:ring-0">
-                                    <option>This Week</option>
-                                    <option>Last Week</option>
-                                </select>
-                            </div>
-                            <div className="h-40 flex items-end justify-between gap-2 px-2">
-                                <div className="w-full bg-primary/20 rounded-t-lg h-[40%] group relative"><div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Mon: 1.2k</div></div>
-                                <div className="w-full bg-primary/20 rounded-t-lg h-[65%] group relative"><div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Tue: 1.8k</div></div>
-                                <div className="w-full bg-primary/20 rounded-t-lg h-[85%] group relative"><div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Wed: 2.1k</div></div>
-                                <div className="w-full bg-primary rounded-t-lg h-[75%] group relative"><div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Thu (Today): 1.9k</div></div>
-                                <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-t-lg h-[20%]"></div>
-                                <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-t-lg h-[20%]"></div>
-                                <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-t-lg h-[20%]"></div>
-                            </div>
-                            <div className="flex justify-between mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                                <span>M</span><span>T</span><span>W</span><span className="text-primary">T</span><span>F</span><span>S</span><span>S</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+              </div>
             </div>
-        </Layout>
+          </section>
+  
+          {/* ── Features Section ── */}
+          <section className="max-w-7xl mx-auto px-6 md:px-10 py-24">
+            <div className="flex flex-col items-center text-center gap-4 mb-16">
+              <h2 className="text-slate-900 dark:text-slate-100 text-4xl md:text-5xl font-black leading-tight tracking-tight">
+                Smart Fitness for Everyone
+              </h2>
+              <p className="text-slate-600 dark:text-slate-400 text-lg max-w-[700px]">
+                We combine advanced machine learning with sports science to give you a truly personalized experience.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                { icon: 'smart_toy', title: 'AI Coaching', desc: '24/7 access to your personal AI trainer for form correction, workout adjustments, and real-time motivation.' },
+                { icon: 'restaurant', title: 'Personalized Nutrition', desc: 'Tailored meal plans and macro tracking based on your unique metabolism, preferences, and daily activity.' },
+                { icon: 'groups', title: 'Community Support', desc: 'Join thousands of members sharing their journey, competing in challenges, and celebrating every win together.' },
+              ].map(({ icon, title, desc }) => (
+                <div key={title} className="flex flex-col gap-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-sm hover:shadow-xl transition-shadow group">
+                  <div className="bg-primary/10 w-16 h-16 rounded-xl flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-slate-900 transition-colors">
+                    <span className="material-symbols-outlined text-3xl">{icon}</span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-slate-900 dark:text-slate-100 text-xl font-bold">{title}</h3>
+                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+  
+          {/* ── Testimonials Section ── */}
+          <section className="bg-white dark:bg-slate-900 py-24">
+            <div className="max-w-7xl mx-auto px-6 md:px-10">
+              <div className="flex justify-between items-end mb-12">
+                <div>
+                  <h2 className="text-slate-900 dark:text-slate-100 text-3xl font-black mb-2">Success Stories</h2>
+                  <p className="text-slate-600 dark:text-slate-400">Join 50,000+ people who transformed their lives.</p>
+                </div>
+                <button className="hidden md:flex items-center gap-2 text-primary font-bold hover:text-primary/70 transition-colors">
+                  View All Stories <span className="material-symbols-outlined">arrow_forward</span>
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {[
+                  {
+                    name: 'Sarah Jenkins', since: 'Member since 2023',
+                    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCc9ayHOBK7LVfZYXOV2DG3LsDZMIeF5pu07uPd5kYCC-p-gRES4ts3WE1zAOWEJpTQK4eGl-e1Dxk98XuS2rlvkgS2Mia6aSHDaAmrAJKTKzVJis77LEVPOHSx8JmTf6T9uYoWpJHMIx28Uqk10CnB43zfmDad_ZSYrLjAghsN2whesdhaXmRDqNBvCWtICopVbQYtpROWYFy-w7dz9AKKo7G_pEYj0Y2Ch0lE7lPSioC3Bsv6jiLkcph6VV5zGUS6oXEBZtbmoLo',
+                    quote: '"HealthMate completely changed how I look at fitness. The AI coach is like having a world-class pro in my pocket. I\'ve never felt stronger."',
+                  },
+                  {
+                    name: 'Mark Thompson', since: 'Member since 2024',
+                    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDKGv91DB4RS19JZh2Bh-UfKrN6zJkWKNLykGZPfVWyaeAojiA6pl5iigPvAaE6mXPxQHkSbT0gnpSsLSBHJ6MdQhc-mO0kz9YQ123iR5nFUCrHL3MB9mR0eEsrA88_DyXgGHGsSVc3uUI9sWfo7yS5WKhNMq8QD7krGegQCzZ0_dOyZS0dszKasnKk04yEATpqjw78Q0RB2YPDqwv0hgUH8gcHw66DwMAhQJ0BAn0hS6NlPxurPnsAE9MTNltu8CtrSgtJ0UOr98M',
+                    quote: '"I lost 20lbs in just 4 months thanks to the personalized meal plans. It takes the guesswork out of nutrition entirely. Highly recommended!"',
+                  },
+                  {
+                    name: 'Elena Rodriguez', since: 'Member since 2023',
+                    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAOhxo80d7t2-d5fjk61CmF3XGI3m5LxU-_r3Jv7ktrVPn6ivnqFSzalxvAvPKnNJAR4eII0nvjmJyRJIu3HE_-jyECRcDX8q8IovoaDgF6wdqPZ0mUYM6wdJyfne5BGFXN1AqGZj_DxFJ7JO_veBvhjsmQDK8Jj9t4k0-FkutafIGROPVooWOnOntL1q9CuiVLgTlVzEGIzUPp4QnxJCe_RSxq77bl6oXlmkaHPZl-Rl8-nnh75F5Du57AA3AONn6CN5bI2apB4L4',
+                    quote: '"The community keeps me accountable. It\'s the first time I\'ve stuck to a routine for over a year. The support is just incredible."',
+                  },
+                ].map(({ name, since, avatar, quote }) => (
+                  <div key={name} className="flex flex-col gap-5 p-8 rounded-2xl bg-background-light dark:bg-slate-800/50">
+                    <div className="flex items-center gap-4">
+                      <div className="rounded-full size-12 overflow-hidden ring-2 ring-primary/20">
+                        <img src={avatar} alt={name} className="w-full h-full object-cover" />
+                      </div>
+                      <div>
+                        <p className="text-slate-900 dark:text-slate-100 font-bold">{name}</p>
+                        <p className="text-slate-500 text-sm">{since}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 text-primary">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <span key={i} className="material-symbols-outlined text-[20px]">star</span>
+                      ))}
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 italic leading-relaxed">{quote}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+  
+          {/* ── CTA Section ── */}
+          <section className="py-24 px-6 md:px-10">
+            <div className="max-w-5xl mx-auto rounded-3xl bg-slate-900 dark:bg-primary/10 border border-slate-800 dark:border-primary/20 p-12 text-center relative overflow-hidden">
+              <div className="absolute -top-24 -left-24 w-64 h-64 bg-primary/20 rounded-full blur-[100px] pointer-events-none" />
+              <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-primary/20 rounded-full blur-[100px] pointer-events-none" />
+              <div className="relative z-10">
+                <h2 className="text-white dark:text-slate-100 text-4xl md:text-5xl font-black mb-6">
+                  Ready to Start Your Transformation?
+                </h2>
+                <p className="text-slate-400 dark:text-slate-300 text-lg mb-10 max-w-[600px] mx-auto">
+                  Get your personalized fitness and nutrition plan today. Start your 7-day free trial. No credit card required.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <button className="bg-primary text-slate-900 px-10 py-4 rounded-xl font-black text-lg hover:scale-105 transition-transform shadow-xl shadow-primary/20">
+                    Get Started for Free
+                  </button>
+                  <button className="bg-transparent text-white border border-slate-700 px-10 py-4 rounded-xl font-bold text-lg hover:bg-white/5 transition-colors">
+                    Compare Plans
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+  
+        </main>
+  
+        {/* ── Footer ── */}
+        <Footer/>
+  
+      </div>
     );
-};
-
-export default HomePage;
+  };
+  
+  export default HomePage;
