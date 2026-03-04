@@ -8,10 +8,13 @@ const workoutRoutes = require("./routes/workoutRoutes");
 const workoutCategoryRoutes = require("./routes/workoutCategoryRoutes");
 const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
-const foodRoutes = require('./routes/food-routes');
-const mealPlanRoutes = require('./routes/meal-plan-routes');
-const trackerRoutes = require('./routes/trackerRoutes');
-
+const foodRoutes = require("./routes/food-routes");
+const mealPlanRoutes = require("./routes/meal-plan-routes");
+const trackerRoutes = require("./routes/trackerRoutes");
+const progressRoutes = require("./routes/progressRoutes");
+const workoutLogRoutes = require("./routes/workoutLogRoutes");
+const userWorkoutRoutes = require("./routes/userWorkouts");
+const UserWorkout = require("./models/UserWorkout");
 // Kết nối database
 connectDB();
 
@@ -19,10 +22,16 @@ const app = express();
 
 // Middleware
 // Gộp cấu hình CORS lại thành 1 lần duy nhất
-app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'], 
-    credentials: true
-}));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:5175",
+    ],
+    credentials: true,
+  }),
+);
 
 app.use(express.json());
 
@@ -31,9 +40,12 @@ app.use("/api/workouts", workoutRoutes);
 app.use("/api/workout-categories", workoutCategoryRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/chat", chatRoutes);
-app.use('/api/foods', foodRoutes);
-app.use('/api/meal-plans', mealPlanRoutes);
-app.use('/api/tracker', trackerRoutes);
+app.use("/api/foods", foodRoutes);
+app.use("/api/meal-plans", mealPlanRoutes);
+app.use("/api/tracker", trackerRoutes);
+app.use("/api/progress", progressRoutes);
+app.use("/api/workout-logs", workoutLogRoutes);
+app.use("/api/user/workouts", userWorkoutRoutes); // user
 
 // API test thử
 app.get("/", (req, res) => {
