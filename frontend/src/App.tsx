@@ -17,6 +17,7 @@ import OnboardingPage from './pages/OnboardingPage';
 import FitnessGoal from './pages/FitnessGoals';
 import SchedulePage from './pages/SchedulePage';
 import OverviewPage from './pages/Overviewpage';
+import TrackingPage from './pages/TrackingPage';
 
 export default function App() {
   return (
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/fitness-goals" element={<FitnessGoal />} />
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path='/overview' element={<OverviewPage />} />
+          <Route path='/tracking' element={<TrackingPage />} />
         </Route>
 
         {/* Admin routes */}
