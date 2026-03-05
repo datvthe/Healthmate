@@ -11,6 +11,7 @@ const chatRoutes = require("./routes/chatRoutes");
 const foodRoutes = require('./routes/food-routes');
 const mealPlanRoutes = require('./routes/meal-plan-routes');
 const trackerRoutes = require('./routes/trackerRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 // Kết nối database
 connectDB();
@@ -34,6 +35,7 @@ app.use("/api/chat", chatRoutes);
 app.use('/api/foods', foodRoutes);
 app.use('/api/meal-plans', mealPlanRoutes);
 app.use('/api/tracker', trackerRoutes);
+app.use('/api/admin', adminRoutes);
 
 // API test thử
 app.get("/", (req, res) => {

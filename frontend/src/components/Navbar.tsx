@@ -33,6 +33,7 @@ const Navbar = () => {
           <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/workouts">Workouts</Link>
           <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/meal-planner">Meal Plan</Link>
           <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/aicoach">AI Coach</Link>
+          <Link className="text-slate-600 hover:text-primary text-sm font-medium bg-red-100 px-3 py-1 rounded" to="/admin/dashboard">Admin</Link>
         </nav>
         
         {/* Actions & Profile (Thay đổi theo trạng thái Login) */}
