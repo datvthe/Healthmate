@@ -8,15 +8,15 @@ const {
   deleteFood
 } = require('../controllers/food-controller');
 const upload = require('../middleware/food-upload');
+const { protect, adminOnly } = require('../middleware/authMiddleware');
 
 // Public routes
 router.get('/', getAllFoods);
 router.get('/:id', getFoodById);
 
-// Admin routes (cần auth middleware gắn req.user)
-// upload.single('image') xử lý multipart/form-data, field name là 'image'
-router.post('/', upload.single('image'), createFood);
-router.put('/:id', upload.single('image'), updateFood);
-router.delete('/:id', deleteFood);
+// Admin routes: yêu cầu đăng nhập và quyền admin
+router.post('/', protect, adminOnly, upload.single('image'), createFood);
+router.put('/:id', protect, adminOnly, upload.single('image'), updateFood);
+router.delete('/:id', protect, adminOnly, deleteFood);
 
 module.exports = router;

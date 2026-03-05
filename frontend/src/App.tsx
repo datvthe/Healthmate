@@ -1,13 +1,15 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import ProtectedRoute from './components/ProtectedRoute'; // Import chú bảo vệ
+import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 
 // --- Import các trang ---
 import AiCoachPage from './pages/AiCoachPage';
 import FoodCatalogPage from './pages/FoodCatalogPage';
 import MealPlannerPage from './pages/MealPlannerPage';
-import AdminFoodFormPage from './pages/AdminFoodFormPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminMealPlannerPage from './pages/AdminMealPlannerPage';
+import AdminFoodCatalogPage from './pages/AdminFoodCatalogPage';
 import WorkoutsPage from './pages/WorkoutsPage';
 import WorkoutDetailPage from "./pages/WorkoutDetailPage";
 import LoginPage from './pages/LoginPage';
@@ -64,9 +66,12 @@ export default function App() {
           <Route path="/workouts" element={<WorkoutsPage />} />
           <Route path="/workouts/:id" element={<WorkoutDetailPage />} />
           
-          {/* Admin */}
-          <Route path="/dashboard" element={<AdminDashboardPage />} />
-          <Route path="/dashboard/foods/new" element={<AdminFoodFormPage />} />
+          {/* Admin - chỉ cho phép role === 'admin' */}
+          <Route element={<AdminRoute />}>
+            <Route path="/dashboard" element={<AdminDashboardPage />} />
+            <Route path="/dashboard/foods" element={<AdminFoodCatalogPage />} />
+            <Route path="/dashboard/meal-planner" element={<AdminMealPlannerPage />} />
+          </Route>
         </Route>
 
       </Routes>

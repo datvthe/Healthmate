@@ -20,8 +20,14 @@ const protect = async (req, res, next) => {
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Lưu thông tin user id vào req để controller sử dụng
-      req.user = { id: decoded.id };
+      // Lấy role từ DB để enforce authorization
+      const user = await User.findById(decoded.id).select('role');
+      if (!user) {
+        return res.status(401).json({ message: 'User không tồn tại.' });
+      }
+
+      // Lưu id và role vào req để controller sử dụng
+      req.user = { id: decoded.id, role: user.role };
 
       return next();
     } catch (error) {
@@ -34,7 +40,15 @@ const protect = async (req, res, next) => {
   }
 };
 
-module.exports = {
-  protect
+// Middleware chỉ cho phép admin: phải dùng sau protect
+const adminOnly = (req, res, next) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ message: 'Chỉ admin mới có quyền truy cập.' });
+  }
+  next();
 };
 
+module.exports = {
+  protect,
+  adminOnly
+};

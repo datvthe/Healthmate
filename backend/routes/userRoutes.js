@@ -4,9 +4,10 @@ const {
   registerUser,
   loginUser,
   getMe,
-  updateProfile
+  updateProfile,
+  getUsers
 } = require('../controllers/userController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, adminOnly } = require('../middleware/authMiddleware');
 
 // Đăng ký tài khoản mới
 router.post('/register', registerUser);
@@ -19,5 +20,8 @@ router.get('/me', protect, getMe);
 
 // Cập nhật hồ sơ cá nhân
 router.put('/me', protect, updateProfile);
+
+// Lấy danh sách customers (admin only)
+router.get('/', protect, adminOnly, getUsers);
 
 module.exports = router;
