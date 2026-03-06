@@ -21,6 +21,7 @@ import FitnessGoal from './pages/user/FitnessGoals';
 import SchedulePage from './pages/user/SchedulePage';
 import OverviewPage from './pages/user/Overviewpage';
 import WorkoutUser from './pages/user/WorkoutUser';
+import CommunityFeed from './pages/CommunityFeed';
 
 
 export default function App() {
@@ -73,7 +74,8 @@ export default function App() {
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path='/overview' element={<OverviewPage />} />
           <Route path='/workout-user' element={<WorkoutUser />} />
-
+          <Route path='/community-feed' element={<CommunityFeed />} />
+          
           {/* Admin - chỉ cho phép role === 'admin' */}
           <Route element={<AdminRoute />}>
             <Route path="/dashboard" element={<AdminDashboardPage />} />
