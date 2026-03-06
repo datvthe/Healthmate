@@ -18,6 +18,7 @@ import OnboardingPage from './pages/user/OnboardingPage';
 import FitnessGoal from './pages/user/FitnessGoals';
 import SchedulePage from './pages/user/SchedulePage';
 import OverviewPage from './pages/user/Overviewpage';
+import WorkoutUser from './pages/user/WorkoutUser';
 
 
 export default function App() {
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="/fitness-goals" element={<FitnessGoal />} />
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path='/overview' element={<OverviewPage />} />
+          <Route path='/workout-user' element={<WorkoutUser />} />
         </Route>
 
         {/* Admin routes */}
