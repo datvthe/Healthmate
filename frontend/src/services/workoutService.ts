@@ -103,6 +103,13 @@ export const getMyWorkoutPlan = async () => {
       },
     });
 
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
+      return [];
+    }
+
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status}`);
     }
@@ -158,6 +165,13 @@ export const getMyWorkoutLogs = async () => {
         Authorization: `Bearer ${token}`,
       },
     });
+
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
+      return [];
+    }
 
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status}`);

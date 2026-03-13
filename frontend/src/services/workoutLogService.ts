@@ -19,7 +19,10 @@ export const createWorkoutLog = async (logData: {
   });
 
   if (!res.ok) {
-    throw new Error("Failed to create workout log");
+    const text = await res.text();
+    const message = `Failed to create workout log (status=${res.status}): ${text}`;
+    console.error(message);
+    throw new Error(message);
   }
 
   return res.json();

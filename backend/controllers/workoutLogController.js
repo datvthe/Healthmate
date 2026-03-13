@@ -13,9 +13,18 @@ const createWorkoutLog = async (req, res) => {
       date,
     } = req.body;
 
-    if (!workout_id || !duration_minutes || !calories_burned) {
+    // Log incoming body for easier debugging
+    console.debug("createWorkoutLog payload:", req.body);
+
+    // Accept 0 values (e.g. 0 calories burned) but reject missing values
+    const missing = [];
+    if (workout_id == null) missing.push("workout_id");
+    if (duration_minutes == null) missing.push("duration_minutes");
+    if (calories_burned == null) missing.push("calories_burned");
+
+    if (missing.length > 0) {
       return res.status(400).json({
-        message: "Missing required fields",
+        message: `Missing required fields: ${missing.join(", ")}`,
       });
     }
 

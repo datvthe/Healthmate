@@ -174,7 +174,8 @@ interface TodaysExercise {
 
 const WorkoutsUserPage = () => {
   const navigate = useNavigate();
-
+  const [currentPage, setCurrentPage] = useState(1);
+const logsPerPage = 5;
   const [library, setLibrary] = useState<Workout[]>([]);
   const [myPlan, setMyPlan] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
@@ -469,8 +470,8 @@ useEffect(() => {
       startTime: addStartTime,
       endTime: addEndTime,
       image: workout.cover_image || "https://placehold.co/100x100/png?text=Workout",
-      duration: workout.duration,
-      calories: workout.estimatedCalories,
+      duration: workout.duration || 0,
+      calories: workout.estimatedCalories ?? workout.calories_burned ?? 0,
     };
     const newExercises = [...todaysExercises, newExercise];
     setTodaysExercises(newExercises);
@@ -511,8 +512,11 @@ useEffect(() => {
       // Create logs for all completed exercises
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
-      const logPromises = todaysExercises.map(exercise =>
-        createWorkoutLog({
+      console.log("Finishing workout session with exercises:", todaysExercises);
+
+      const logPromises = todaysExercises.map(exercise => {
+        console.log("Creating log for exercise:", exercise);
+        return createWorkoutLog({
           workout_id: exercise.id,
           duration_minutes: exercise.duration || 30,
           calories_burned: exercise.calories || 0,
@@ -521,10 +525,11 @@ useEffect(() => {
         }).catch(error => {
           console.error("Error creating workout log for", exercise.name, error);
           // Continue with other logs even if one fails
-        })
-      );
+        });
+      });
 
-      await Promise.all(logPromises);
+      const results = await Promise.all(logPromises);
+      console.log("Workout logs created:", results);
 
       // Clear today's exercises
       setTodaysExercises([]);
@@ -536,10 +541,30 @@ useEffect(() => {
       setWorkoutStartTime(null);
       setExerciseTimer(0);
 
-      // Reload logs to show new entries
-      await loadLogs();
-      // Recalculate progress
-      calculateDailyProgress();
+// Tính calories vừa tập
+const caloriesBurnedThisSession = todaysExercises.reduce(
+  (sum, ex) => sum + (ex.calories || 0),
+  0
+);
+
+// cập nhật progress
+setDailyProgressPercent((prev) => {
+  const newPercent = Math.min(
+    prev + (caloriesBurnedThisSession / dailyCaloTarget) * 100,
+    100
+  );
+
+  if (newPercent >= 100) {
+    setShowCongrats(true);
+    setTimeout(() => setShowCongrats(false), 3000);
+  }
+
+  return newPercent;
+});
+
+// Reload logs
+await loadLogs();
+
 
     } catch (error) {
       console.error("Error finishing workout session:", error);
@@ -667,7 +692,7 @@ useEffect(() => {
                         dailyProgressPercent < 25 ? 'bg-orange-400' :
                         dailyProgressPercent < 50 ? 'bg-yellow-400' :
                         dailyProgressPercent < 75 ? 'bg-blue-400' :
-                        dailyProgressPercent < 100 ? 'bg-green-400' : 'bg-emerald-500'
+                        dailyProgressPercent < 200 ? 'bg-green-400' : 'bg-emerald-500'
                       }`}
                       style={{ width: `${dailyProgressPercent}%` }}
                     />
@@ -688,10 +713,8 @@ useEffect(() => {
                   Gợi ý: Tập {Math.ceil(dailyCaloTarget / 300)} bài
                 </div>
                 <span className="text-slate-400">|</span>
-                <span className="text-xs font-bold text-primary flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm">local_fire_department</span>
-                  12 Day Streak
-                </span>
+                <span className="text-xs font-bold text-primary flex items-center gap-1"></span>
+                  
               </div>
             </div>
             <button 
@@ -865,37 +888,113 @@ useEffect(() => {
           </section>
 
           {/* insert original plan/history sections */}
-          <div>
-            <h2 className="text-2xl font-bold mb-4">Workout History</h2>
-            {logs.length === 0 ? (
-              <div className="text-slate-500">No workout logs yet</div>
-            ) : (
-              <div className="bg-white dark:bg-slate-900 rounded-xl shadow overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-200">
-                    <tr>
-                      <th className="p-3 text-left">Workout</th>
-                      <th className="p-3 text-left">Duration</th>
-                      <th className="p-3 text-left">Calories</th>
-                      <th className="p-3 text-left">Time</th>
-                      <th className="p-3 text-left">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logs.map((log) => (
+  <div>
+  <h2 className="text-2xl font-bold mb-4">Workout History</h2>
+
+  {logs.length === 0 ? (
+    <div className="text-slate-500">No workout logs yet</div>
+  ) : (
+    <>
+      {(() => {
+        const sortedLogs = [...logs].sort((a, b) => {
+          const timeA = new Date(`${a.date}T${a.start_time || "00:00"}`);
+          const timeB = new Date(`${b.date}T${b.start_time || "00:00"}`);
+          return timeB.getTime() - timeA.getTime();
+        });
+
+        const indexOfLast = currentPage * logsPerPage;
+        const indexOfFirst = indexOfLast - logsPerPage;
+        const currentLogs = sortedLogs.slice(indexOfFirst, indexOfLast);
+        const totalPages = Math.ceil(sortedLogs.length / logsPerPage);
+
+        return (
+          <>
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-200">
+                  <tr>
+                    <th className="p-3 text-left">Workout</th>
+                    <th className="p-3 text-left">Duration</th>
+                    <th className="p-3 text-left">Calories</th>
+                    <th className="p-3 text-left">Time</th>
+                    <th className="p-3 text-left">Date</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {currentLogs.map((log) => {
+                    const workoutName =
+                      log.workout_id?.title ||
+                      log.workout_id?.name ||
+                      "Workout";
+
+                    const formattedTime = log.start_time
+                      ? new Date(
+                          `1970-01-01T${log.start_time}`
+                        ).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "N/A";
+
+                  const formattedDate = new Date(log.date).toLocaleDateString("en-GB", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+                    return (
                       <tr key={log._id} className="border-t">
-                        <td className="p-3">{log.workout_id?.title || log.workout_id?.name}</td>
+                        <td className="p-3 font-medium">{workoutName}</td>
+
                         <td className="p-3">{log.duration_minutes} min</td>
-                        <td className="p-3">🔥 {log.calories_burned}</td>
-                        <td className="p-3">{log.start_time || 'N/A'}</td>
-                        <td className="p-3">{new Date(log.date).toLocaleDateString()}</td>
+
+                        <td className="p-3 text-orange-500 font-semibold">
+                          🔥 {log.calories_burned}
+                        </td>
+
+                        <td className="p-3">{formattedTime}</td>
+
+                        <td className="p-3">{formattedDate}</td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="flex justify-center items-center gap-3 mt-4">
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                className="px-3 py-1 bg-slate-200 rounded hover:bg-slate-300"
+              >
+                ←
+              </button>
+
+              <span className="font-medium">
+                Page {currentPage} / {totalPages}
+              </span>
+
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(p + 1, totalPages))
+                }
+                className="px-3 py-1 bg-slate-200 rounded hover:bg-slate-300"
+              >
+                →
+              </button>
+
+            </div>
+          </>
+        );
+      })()}
+    </>
+  )}
+</div>
+
+
 
           {/* AI Recommendations */}
           <section className="flex flex-col gap-6">
