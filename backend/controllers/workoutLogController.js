@@ -21,7 +21,7 @@ const createWorkoutLog = async (req, res) => {
     }
 
     const log = await WorkoutLog.create({
-      user_id: req.user._id, // FIX
+      user_id: req.user.id, // FIX
       workout_id,
       duration_minutes,
       calories_burned,
@@ -38,7 +38,7 @@ const createWorkoutLog = async (req, res) => {
 const getMyWorkoutLogs = async (req, res) => {
   try {
     const logs = await WorkoutLog.find({
-      user_id: req.user._id, // FIX
+      user_id: req.user.id, // FIX
     })
       .populate("workout_id")
       .sort({ createdAt: -1 }); // FIX

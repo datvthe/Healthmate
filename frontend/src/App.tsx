@@ -3,19 +3,22 @@ import ProtectedRoute from './components/ProtectedRoute'; // Import chú bảo v
 
 // --- Import các trang ---
 import AiCoachPage from './pages/AiCoachPage';
-import FoodCatalogPage from './pages/FoodCatalogPage';
-import MealPlannerPage from './pages/MealPlannerPage';
-import AdminFoodFormPage from './pages/AdminFoodFormPage';
-import AdminDashboardPage from './pages/AdminDashboardPage';
-import WorkoutsPage from './pages/WorkoutsPage';
-import WorkoutDetailPage from "./pages/WorkoutDetailPage";
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import ProfilePage from './pages/ProfilePage';
-import HomePage from './pages/HomePage';
-import OnboardingPage from './pages/OnboardingPage';
-import FitnessGoal from './pages/FitnessGoals';
+import FoodCatalogPage from './pages/user/FoodCatalogPage';
+import MealPlannerPage from './pages/user/MealPlannerPage';
+import AdminFoodFormPage from './pages/admin/AdminFoodFormPage';
+import AdminDashboardPage from './pages/user/AdminDashboardPage';
+import WorkoutsPage from './pages/user/WorkoutsPage';
+import WorkoutDetailPage from "./pages/user/WorkoutDetailPage";
+import LoginPage from './pages/user/LoginPage';
+import RegisterPage from './pages/user/RegisterPage';
+import ProfilePage from './pages/user/ProfilePage';
+import HomePage from './pages/user/HomePage';
+import OnboardingPage from './pages/user/OnboardingPage';
+import FitnessGoal from './pages/user/FitnessGoals';
 import WorkoutsUserPage from './pages/WorkoutsUserPage';
+import CommunityFeed from './pages/CommunityFeed';
+import OverviewPage from './pages/user/Overviewpage';
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -38,6 +41,8 @@ export default function App() {
           <Route path="/foods" element={<FoodCatalogPage />} />
           <Route path="/meal-planner" element={<MealPlannerPage />} />
           <Route path="/workouts" element={<WorkoutsUserPage />} />
+          <Route path="/community-feed" element={<CommunityFeed/>} />
+            <Route path="/overview" element={<OverviewPage/>} />
         </Route>
 
         {/* Admin routes */}
