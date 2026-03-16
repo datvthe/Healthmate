@@ -205,26 +205,17 @@ export const getDailyRoutine = async () => {
   }
 };
 
-export const updateDailyRoutine = async (daily_routine: any[]) => {
+export const updateDailyRoutine = async (data: any) => {
   const token = localStorage.getItem("token");
 
-  try {
-    const res = await fetch(`${USER_API}/me/daily-routine`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ daily_routine }),
-    });
+  const res = await fetch(`${USER_API}/me/daily-routine`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
 
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
-    }
-
-    return await res.json();
-  } catch (error) {
-    console.error("Error updating daily routine:", error);
-    throw error;
-  }
+  return res.json();
 };

@@ -129,37 +129,51 @@ const getMe = async (req, res) => {
   }
 };
 
-// [GET] Lấy daily routine
-const getDailyRoutine = async (req, res) => {
+
+const updateDailyRoutine = async (req, res) => {
   try {
+    const { date, exercises } = req.body;
+
     const user = await User.findById(req.user.id);
 
     if (!user) {
-      return res.status(404).json({ message: "Không tìm thấy người dùng." });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    res.json(user.daily_routine || []);
+    const existing = user.daily_routine.find((d) => d.date === date);
+
+    if (existing) {
+      existing.exercises = exercises;
+    } else {
+      user.daily_routine.push({ date, exercises });
+    }
+
+    await user.save();
+
+    res.json({ message: "Daily routine updated" });
   } catch (error) {
     res.status(500).json({ message: "Lỗi server", error: error.message });
   }
 };
 
 // [PUT] Cập nhật daily routine
-const updateDailyRoutine = async (req, res) => {
+const getDailyRoutine = async (req, res) => {
   try {
-    const { daily_routine } = req.body;
-
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      { daily_routine },
-      { new: true },
-    );
+    const user = await User.findById(req.user.id);
 
     if (!user) {
-      return res.status(404).json({ message: "Không tìm thấy người dùng." });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    res.json(user.daily_routine || []);
+    const result = {};
+
+    if (user.daily_routine && user.daily_routine.length > 0) {
+      user.daily_routine.forEach((day) => {
+        result[day.date] = day.exercises;
+      });
+    }
+
+    res.json(result);
   } catch (error) {
     res.status(500).json({ message: "Lỗi server", error: error.message });
   }

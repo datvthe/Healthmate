@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
-
+import SchedulePlanner from "./user/SchedulePlanner";
 // --- UI helper types/components borrowed from WorkoutUser.tsx ---
 
 type DbWorkout = {
@@ -160,6 +160,10 @@ interface Workout {
   difficulty: string;
   duration: number;
   estimatedCalories: number;
+   video_url?: string;  
+   cover_image?: string;
+   title: string;
+   
 }
 
 interface TodaysExercise {
@@ -170,6 +174,12 @@ interface TodaysExercise {
   image: string;
   duration: number;
   calories: number;
+  
+  exercises?: {
+    title: string
+    video_url?: string
+    duration_sec?: number
+  }[]
 }
 
 const WorkoutsUserPage = () => {
@@ -193,7 +203,8 @@ const logsPerPage = 5;
   const [goal, setGoal] = useState<any>(null);
   const [goalProgress, setGoalProgress] = useState(0);
 
-  const [todaysExercises, setTodaysExercises] = useState<TodaysExercise[]>([]);
+
+  
 
   // daily progress
   const [dailyCaloTarget, setDailyCaloTarget] = useState(0);
@@ -212,7 +223,16 @@ const logsPerPage = 5;
   const [exerciseTimer, setExerciseTimer] = useState(0);
   const [finishingWorkout, setFinishingWorkout] = useState(false);
 
-
+// schedule planner state
+const today = new Date().toISOString().split("T")[0]
+const [selectedDate, setSelectedDate] = useState(today)
+  const [exercisesByDate, setExercisesByDate] = useState<
+Record<string, TodaysExercise[]>
+>({})
+const [eventsByDate, setEventsByDate] = useState<
+Record<string, { title: string; time: string; image?: string }[]>
+>({})
+const todaysExercises = exercisesByDate[selectedDate] || []
 const calculateGoalProgress = () => {
   if (!goal || !logs || logs.length === 0) {
     setGoalProgress(0);
@@ -329,15 +349,42 @@ useEffect(() => {
     setLogs(data);
   };
 
-  const loadTodaysExercises = async () => {
-    try {
-      const data = await getDailyRoutine();
-      setTodaysExercises(data);
-    } catch (error) {
-      console.error("Error loading daily routine:", error);
-      setTodaysExercises([]);
-    }
-  };
+const loadTodaysExercises = async () => {
+  try {
+    const data = await getDailyRoutine();
+
+    const formatted: Record<string, TodaysExercise[]> = {};
+
+    Object.keys(data).forEach(date => {
+      formatted[date] = data[date].map((ex: any, index: number) => ({
+        id: ex.workout_id || `${date}-${index}`, // fallback id
+        name: ex.name,
+        startTime: ex.startTime,
+        endTime: ex.endTime,
+        image: ex.image,
+        duration: ex.duration,
+        calories: ex.calories
+      }));
+    });
+
+    setExercisesByDate(formatted);
+
+    const events: any = {};
+
+    Object.keys(formatted).forEach(date => {
+      events[date] = formatted[date].map((ex) => ({
+        title: ex.name,
+        time: `${ex.startTime} - ${ex.endTime}`,
+        image: ex.image
+      }));
+    });
+
+    setEventsByDate(events);
+
+  } catch (error) {
+    console.error("Error loading daily routine:", error);
+  }
+};
 
   const loadAll = async () => {
     setLoading(true);
@@ -464,23 +511,46 @@ useEffect(() => {
       return;
     }
 
-    const newExercise: TodaysExercise = {
-      id: workout._id,
-      name: workout.name,
-      startTime: addStartTime,
-      endTime: addEndTime,
-      image: workout.cover_image || "https://placehold.co/100x100/png?text=Workout",
-      duration: workout.duration || 0,
-      calories: workout.estimatedCalories ?? workout.calories_burned ?? 0,
-    };
-    const newExercises = [...todaysExercises, newExercise];
-    setTodaysExercises(newExercises);
-    try {
-      await updateDailyRoutine(newExercises);
-    } catch (error) {
-      console.error("Error saving daily routine:", error);
-    }
-    setPreviewWorkoutId(null); // close modal
+    const exercises = workout.exercises || [];
+
+const newExercisesFromWorkout = exercises.map((ex: any, i: number) => ({
+  id: `${workout._id}-${i}`,
+  name: ex.title || workout.title,
+  startTime: addStartTime,
+  endTime: addEndTime,
+  image: workout.cover_image || "https://placehold.co/100x100/png?text=Workout",
+  duration: Math.round((ex.duration_sec || 60) / 60),
+  calories: Math.round(
+    (workout.calories_burned || workout.estimatedCalories || 0) / exercises.length
+  ),
+  video_url: ex.video_url
+}));
+ const newExercises = [
+  ...(exercisesByDate[selectedDate] || []),
+  ...newExercisesFromWorkout
+];
+
+setExercisesByDate(prev => ({
+  ...prev,
+  [selectedDate]: newExercises
+}));
+await updateDailyRoutine({
+  date: selectedDate,
+  exercises: newExercises
+});
+   const newEvents = newExercises.map(ex => ({
+  title: ex.name,
+  time: `${ex.startTime} - ${ex.endTime}`,
+  image: ex.image
+}));
+
+setEventsByDate(prev => ({
+  ...prev,
+  [selectedDate]: newEvents
+}));
+  // đóng modal sau khi thêm thành công
+setPreviewWorkoutId(null);
+  alert("Đã thêm bài tập vào lịch trình của bạn!");
   };
 
   const startWorkoutSession = () => {
@@ -532,8 +602,15 @@ useEffect(() => {
       console.log("Workout logs created:", results);
 
       // Clear today's exercises
-      setTodaysExercises([]);
-      await updateDailyRoutine([]);
+      setExercisesByDate(prev => ({
+  ...prev,
+  [selectedDate]: []
+}));
+
+await updateDailyRoutine({
+  date: selectedDate,
+  exercises: []
+});
 
       // Reset session state
       setIsWorkoutActive(false);
@@ -580,23 +657,34 @@ await loadLogs();
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const removeFromRoutine = async (index: number) => {
-    const newExercises = todaysExercises.filter((_, i) => i !== index);
-    setTodaysExercises(newExercises);
-    try {
-      await updateDailyRoutine(newExercises);
-    } catch (error) {
-      console.error("Error saving daily routine:", error);
-    }
-  };
+ const removeFromRoutine = async (index: number) => {
+
+  const newExercises = todaysExercises.filter((_, i) => i !== index);
+
+  setExercisesByDate(prev => ({
+    ...prev,
+    [selectedDate]: newExercises
+  }));
+
+  await updateDailyRoutine({
+    date: selectedDate,
+    exercises: newExercises
+  });
+};
 
   const moveUp = async (index: number) => {
     if (index > 0) {
       const newExercises = [...todaysExercises];
       [newExercises[index - 1], newExercises[index]] = [newExercises[index], newExercises[index - 1]];
-      setTodaysExercises(newExercises);
+      setExercisesByDate(prev => ({
+  ...prev,
+  [selectedDate]: newExercises
+}));
       try {
-        await updateDailyRoutine(newExercises);
+        await updateDailyRoutine({
+  date: selectedDate,
+  exercises: newExercises
+});
       } catch (error) {
         console.error("Error saving daily routine:", error);
       }
@@ -607,9 +695,15 @@ await loadLogs();
     if (index < todaysExercises.length - 1) {
       const newExercises = [...todaysExercises];
       [newExercises[index], newExercises[index + 1]] = [newExercises[index + 1], newExercises[index]];
-      setTodaysExercises(newExercises);
+      setExercisesByDate(prev => ({
+  ...prev,
+  [selectedDate]: newExercises
+}));
       try {
-        await updateDailyRoutine(newExercises);
+        await updateDailyRoutine({
+  date: selectedDate,
+  exercises: newExercises
+});
       } catch (error) {
         console.error("Error saving daily routine:", error);
       }
@@ -655,22 +749,47 @@ await loadLogs();
     },
   ];
 
-  const scheduleDays: ScheduleDayProps[] = [
-    { label: 'Mon', date: 24, active: true, hasDot: true },
-    { label: 'Tue', date: 25, hasDot: true },
-    { label: 'Wed', date: 26, hasDot: false },
-    { label: 'Thu', date: 27, hasDot: true },
-    { label: 'Fri', date: 28, hasDot: true },
-    { label: 'Sat', date: 29, hasDot: false },
-    { label: 'Sun', date: 30, hasDot: false },
-  ];
+ 
 
   const scheduleEvents: ScheduleEventProps[] = [
     { icon: 'fitness_center', iconBg: 'bg-blue-500/10', iconColor: 'text-blue-500', title: 'Chest & Triceps', time: 'Tomorrow • 07:00 AM' },
     { icon: 'directions_run', iconBg: 'bg-orange-500/10', iconColor: 'text-orange-500', title: 'HIIT Cardio', time: 'Thu, Oct 27 • 06:30 PM' },
     { icon: 'self_improvement', iconBg: 'bg-purple-500/10', iconColor: 'text-purple-500', title: 'Active Recovery', time: 'Sat, Oct 29 • 10:00 AM' },
   ];
+  const getEmbedUrl = (url: string) => {
+  if (!url) return "";
 
+  if (url.includes("youtu.be")) {
+    const id = url.split("youtu.be/")[1].split("?")[0];
+    return `https://www.youtube.com/embed/${id}`;
+  }
+
+  if (url.includes("watch?v=")) {
+    const id = url.split("watch?v=")[1].split("&")[0];
+    return `https://www.youtube.com/embed/${id}`;
+  }
+
+  return url;
+};
+const scheduleDays = useMemo(() => {
+  const today = new Date()
+  const days = []
+
+  for (let i = -3; i <= 3; i++) {
+    const d = new Date()
+    d.setDate(today.getDate() + i)
+
+    const dateStr = d.toISOString().split("T")[0]
+
+    days.push({
+      date: dateStr,
+      label: d.toLocaleDateString("en-US", { weekday: "short" }),
+      day: d.getDate()
+    })
+  }
+
+  return days
+}, [])
   return (
     <Layout>
       <div className="flex flex-1 gap-8">
@@ -732,7 +851,9 @@ await loadLogs();
               <h3 className="text-xl font-bold flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">calendar_today</span>
                 Today's Routine
-                <span className="text-sm font-normal text-slate-500 ml-2">Monday, Oct 24</span>
+               <span className="text-sm font-normal text-slate-500 ml-2">
+  {new Date(selectedDate).toDateString()}
+</span>
               </h3>
               <button 
                 className="text-primary text-sm font-bold hover:underline flex items-center gap-1"
@@ -1021,38 +1142,12 @@ await loadLogs();
         </div>
 
         {/* ── Sidebar ── */}
-        <aside className="w-[380px] hidden xl:flex flex-col gap-8">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col gap-6 sticky top-24">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold">Schedule Planner</h3>
-              <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
-                <span className="material-symbols-outlined">settings</span>
-              </button>
-            </div>
-
-            {/* Week grid */}
-            <div className="grid grid-cols-7 gap-2">
-              {scheduleDays.map((day) => (
-                <ScheduleDay key={day.label} {...day} />
-              ))}
-            </div>
-
-            {/* Weekly overview */}
-            <div className="flex flex-col gap-4 mt-4">
-              <h4 className="text-sm font-bold uppercase tracking-widest text-slate-400">Weekly Overview</h4>
-              <div className="flex flex-col gap-3">
-                {scheduleEvents.map((ev) => (
-                  <ScheduleEvent key={ev.title} {...ev} />
-                ))}
-              </div>
-            </div>
-
-            <button className="w-full py-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 text-sm font-bold hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-2">
-              <span className="material-symbols-outlined">add</span>
-              Schedule New Workout
-            </button>
-          </div>
-        </aside>
+<SchedulePlanner
+  days={scheduleDays}
+  eventsByDate={eventsByDate}
+  selectedDate={selectedDate}
+  onSelectDate={setSelectedDate}
+/>
 
         {/* Mobile FAB */}
         <div className="fixed bottom-6 right-6 xl:hidden flex flex-col gap-3">
@@ -1136,15 +1231,15 @@ await loadLogs();
                                 )}
                               </div>
                               {ex.video_url && (
-                                <video
-                                  src={ex.video_url}
-                                  controls
-                                  className="w-full h-48 rounded-lg"
-                                  preload="metadata"
-                                >
-                                  Trình duyệt của bạn không hỗ trợ video.
-                                </video>
-                              )}
+  <iframe
+    src={getEmbedUrl(ex.video_url)}
+    className="w-full h-64 rounded-lg"
+    title={ex.title}
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+)}
                             </div>
                           ))}
                         </div>
@@ -1242,20 +1337,19 @@ await loadLogs();
             <div className="flex-1 flex items-center justify-center p-4">
               <div className="w-full max-w-4xl">
                 {/* Placeholder for video - in real app, fetch video from workout */}
-                <div className="aspect-video bg-slate-800 rounded-lg flex items-center justify-center">
-                  <div className="text-center text-white">
-                    <span className="material-symbols-outlined text-6xl mb-4">play_circle</span>
-                    <h3 className="text-2xl font-bold mb-2">
-                      {todaysExercises[currentExerciseIndex].name}
-                    </h3>
-                    <p className="text-lg opacity-80">
-                      {todaysExercises[currentExerciseIndex].duration} phút • 🔥 {todaysExercises[currentExerciseIndex].calories} kcal
-                    </p>
-                    <p className="text-sm opacity-60 mt-4">
-                      Video hướng dẫn sẽ xuất hiện ở đây
-                    </p>
-                  </div>
-                </div>
+               {todaysExercises[currentExerciseIndex].video_url ? (
+  <iframe
+    src={getEmbedUrl(todaysExercises[currentExerciseIndex].video_url)}
+    className="w-full aspect-video rounded-lg"
+    title={todaysExercises[currentExerciseIndex].name}
+    frameBorder="0"
+    allowFullScreen
+  />
+) : (
+  <div className="aspect-video bg-slate-800 rounded-lg flex items-center justify-center text-white">
+    No video available
+  </div>
+)}
               </div>
             </div>
 

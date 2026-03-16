@@ -26,7 +26,7 @@ export default function App() {
       <Routes>
         
         {/*PUBLIC ROUTES */}
-       
+        
         <Route path="/" element={<Navigate to="/homepage" replace />} />
         <Route path="/homepage" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
