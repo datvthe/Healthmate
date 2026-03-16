@@ -39,6 +39,10 @@ const userSchema = new mongoose.Schema(
       picture: { type: String },
     },
     daily_routine: [
+  {
+    date: { type: String, required: true },
+
+    exercises: [
       {
         workout_id: { type: mongoose.Schema.Types.ObjectId, ref: "Workout" },
         name: String,
@@ -49,6 +53,8 @@ const userSchema = new mongoose.Schema(
         image: String,
       },
     ],
+  },
+],
   },
   {
     timestamps: true, // Tự động tạo created_at và updated_at
