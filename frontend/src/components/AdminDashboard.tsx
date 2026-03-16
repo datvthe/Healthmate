@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import '../styles/admin-dashboard.css';
 import WorkoutsSection from './WorkoutsSection';
+import MealPlannerSection from './MealPlannerSection';
 
 // Add Material Icons font
 const link = document.createElement('link');
@@ -216,6 +217,7 @@ const SimpleBarChart: React.FC<{ data: Array<{ _id: string; count: number }>, pe
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [showWorkouts, setShowWorkouts] = useState(false);
+  const [showMealPlanner, setShowMealPlanner] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     activeSessions: 0,
@@ -306,11 +308,18 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleWorkoutClick = () => {
+    setShowMealPlanner(false);
     setShowWorkouts(true);
+  };
+
+  const handleMealPlannerClick = () => {
+    setShowWorkouts(false);
+    setShowMealPlanner(true);
   };
 
   const handleBackToDashboard = () => {
     setShowWorkouts(false);
+    setShowMealPlanner(false);
   };
 
   const handleDataBackup = () => {
@@ -324,11 +333,12 @@ const AdminDashboard: React.FC = () => {
   };
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', route: '/admin/dashboard' },
-    { id: 'users', label: 'Users', icon: 'group', route: '/admin/users' },
-    { id: 'workouts', label: 'Workouts', icon: 'fitness_center', onClick: handleWorkoutClick },
-    { id: 'logs', label: 'System Logs', icon: 'description', route: '/admin/logs' },
-    { id: 'settings', label: 'Settings', icon: 'settings', route: '/admin/settings' }
+    { id: 'dashboard', label: 'Dashboard',    icon: 'dashboard',       onClick: handleBackToDashboard },
+    { id: 'users',     label: 'Users',         icon: 'group',           route: '/admin/users' },
+    { id: 'workouts',  label: 'Workouts',      icon: 'fitness_center',  onClick: handleWorkoutClick },
+    { id: 'meals',     label: 'Meal Planner',  icon: 'restaurant_menu', onClick: handleMealPlannerClick },
+    { id: 'logs',      label: 'System Logs',   icon: 'description',     route: '/admin/logs' },
+    { id: 'settings',  label: 'Settings',      icon: 'settings',        route: '/admin/settings' },
   ];
 
   const getActivityIcon = (type: string) => {
@@ -366,16 +376,26 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
           <nav className="flex flex-col gap-2">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => item.onClick ? item.onClick() : item.route && navigate(item.route)}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-text-dim hover:bg-[#28392e] hover:text-white`}
-              >
-                <span className="material-symbols-outlined">{item.icon}</span>
-                <p className="text-sm font-medium leading-normal">{item.label}</p>
-              </button>
-            ))}
+            {navItems.map((item) => {
+              const isActive =
+                (item.id === 'dashboard' && !showWorkouts && !showMealPlanner) ||
+                (item.id === 'workouts' && showWorkouts) ||
+                (item.id === 'meals' && showMealPlanner);
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => item.onClick ? item.onClick() : item.route && navigate(item.route)}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                    isActive
+                      ? 'bg-primary/10 text-primary border border-primary/20'
+                      : 'text-text-dim hover:bg-[#28392e] hover:text-white border border-transparent'
+                  }`}
+                >
+                  <span className="material-symbols-outlined">{item.icon}</span>
+                  <p className="text-sm font-medium leading-normal">{item.label}</p>
+                </button>
+              );
+            })}
           </nav>
         </div>
         <div className="mt-auto pt-6 border-t border-[#28392e]">
@@ -398,7 +418,9 @@ const AdminDashboard: React.FC = () => {
         {/* Header */}
         <header className="flex items-center justify-between px-8 py-5 border-b border-[#28392e] bg-background-dark shrink-0">
           <div>
-            <h2 className="text-white text-3xl font-bold tracking-tight">System Overview</h2>
+            <Link to="/admin/dashboard" className="text-white text-3xl font-bold tracking-tight hover:text-primary transition-colors">
+              System Overview
+            </Link>
             <p className="text-text-dim text-sm mt-1">Real-time analytics and system health monitoring.</p>
           </div>
           <div className="flex gap-3">
@@ -430,6 +452,8 @@ const AdminDashboard: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-8 scroll-smooth">
           {showWorkouts ? (
             <WorkoutsSection onBack={handleBackToDashboard} />
+          ) : showMealPlanner ? (
+            <MealPlannerSection onBack={handleBackToDashboard} />
           ) : (
             <div className="max-w-7xl mx-auto flex flex-col gap-8">
             {/* KPI Cards */}
