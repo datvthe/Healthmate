@@ -1,12 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import ProtectedRoute from './components/ProtectedRoute'; // Import chú bảo vệ
+import ProtectedRoute from './components/ProtectedRoute';
 
 // --- Import các trang ---
 import AiCoachPage from './pages/user/AiCoachPage';
 import FoodCatalogPage from './pages/user/FoodCatalogPage';
 import MealPlannerPage from './pages/user/MealPlannerPage';
 import AdminFoodFormPage from './pages/admin/AdminFoodFormPage';
-import AdminDashboardPage from './pages/user/AdminDashboardPage';
+import AdminDashboard from './components/AdminDashboard';
+import UserManagement from './components/UserManagement';
 import WorkoutsPage from './pages/user/WorkoutsPage';
 import WorkoutDetailPage from "./pages/user/WorkoutDetailPage";
 import LoginPage from './pages/user/LoginPage';
@@ -33,8 +34,7 @@ export default function App() {
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/fitness-goals" element={<FitnessGoal />} />
 
-        {/*  PROTECTED ROUTES (Bắt buộc đăng nhập)*/}
-        {/* User routes */}
+        {/* PROTECTED ROUTES - User */}
         <Route element={<ProtectedRoute />}>
           <Route path="/aicoach" element={<AiCoachPage />} />
           <Route path="/profile" element={<ProfilePage />} />
@@ -45,12 +45,13 @@ export default function App() {
             <Route path="/overview" element={<OverviewPage/>} />
         </Route>
 
-        {/* Admin routes */}
+        {/* PROTECTED ROUTES - Admin */}
         <Route element={<ProtectedRoute requiredRole="admin" />}>
-          <Route path="/dashboard" element={<AdminDashboardPage />} />
-          <Route path="/dashboard/foods/new" element={<AdminFoodFormPage />} />
-          <Route path="/dashboard/workouts" element={<WorkoutsPage />} />
-          <Route path="/workouts/:id" element={<WorkoutDetailPage />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/users" element={<UserManagement />} />
+          <Route path="/admin/foods/new" element={<AdminFoodFormPage />} />
+          <Route path="/admin/workouts" element={<WorkoutsPage />} />
+          <Route path="/admin/workouts/:id" element={<WorkoutDetailPage />} />
 
         </Route>
 
