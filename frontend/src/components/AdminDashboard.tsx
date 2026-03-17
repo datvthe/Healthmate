@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/admin-dashboard.css';
-import WorkoutsSection from './WorkoutsSection';
 
 // Add Material Icons font
 const link = document.createElement('link');
@@ -215,7 +214,6 @@ const SimpleBarChart: React.FC<{ data: Array<{ _id: string; count: number }>, pe
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [showWorkouts, setShowWorkouts] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     activeSessions: 0,
@@ -302,15 +300,8 @@ const AdminDashboard: React.FC = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     navigate('/login');
-  };
-
-  const handleWorkoutClick = () => {
-    setShowWorkouts(true);
-  };
-
-  const handleBackToDashboard = () => {
-    setShowWorkouts(false);
   };
 
   const handleDataBackup = () => {
@@ -318,6 +309,7 @@ const AdminDashboard: React.FC = () => {
     console.log('Starting data backup...');
   };
 
+/* ... */
   const handleSystemRecovery = () => {
     // Implement system recovery functionality
     console.log('Starting system recovery...');
@@ -326,7 +318,7 @@ const AdminDashboard: React.FC = () => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', route: '/admin/dashboard' },
     { id: 'users', label: 'Users', icon: 'group', route: '/admin/users' },
-    { id: 'workouts', label: 'Workouts', icon: 'fitness_center', onClick: handleWorkoutClick },
+    { id: 'workouts', label: 'Workouts', icon: 'fitness_center', route: '/admin/workouts' },
     { id: 'logs', label: 'System Logs', icon: 'description', route: '/admin/logs' },
     { id: 'settings', label: 'Settings', icon: 'settings', route: '/admin/settings' }
   ];
@@ -369,7 +361,7 @@ const AdminDashboard: React.FC = () => {
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => item.onClick ? item.onClick() : item.route && navigate(item.route)}
+                onClick={() => item.route && navigate(item.route)}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-text-dim hover:bg-[#28392e] hover:text-white`}
               >
                 <span className="material-symbols-outlined">{item.icon}</span>
@@ -428,10 +420,7 @@ const AdminDashboard: React.FC = () => {
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-8 scroll-smooth">
-          {showWorkouts ? (
-            <WorkoutsSection onBack={handleBackToDashboard} />
-          ) : (
-            <div className="max-w-7xl mx-auto flex flex-col gap-8">
+          <div className="max-w-7xl mx-auto flex flex-col gap-8">
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
               <div className="flex flex-col justify-between p-5 rounded-xl bg-surface-dark border border-[#28392e] hover:border-primary/30 transition-all group">
@@ -566,8 +555,7 @@ const AdminDashboard: React.FC = () => {
                 </button>
               </div>
             </div>
-            </div>
-          )}
+          </div>
         </div>
       </main>
     </div>

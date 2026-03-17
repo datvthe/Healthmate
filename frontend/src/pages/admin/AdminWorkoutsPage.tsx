@@ -147,22 +147,101 @@ const AdminWorkoutsPage = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col gap-6">
-      {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-white text-2xl font-bold tracking-tight">Workout Management</h2>
-          <p className="text-text-dim text-sm mt-1">Manage exercise library and workout programs</p>
+    <div className="admin-dashboard dark flex h-screen w-full overflow-hidden bg-background-light dark:bg-background-dark text-slate-900 dark:text-text-light font-display antialiased selection:bg-primary selection:text-background-dark">
+      {/* Sidebar Navigation */}
+      <aside className="flex w-64 flex-col justify-between border-r border-[#28392e] bg-surface-darker p-4 flex-shrink-0 z-20 overflow-y-auto">
+        <div className="flex flex-col gap-4">
+          <div className="flex gap-3 items-center mb-4">
+            <div className="bg-center bg-no-repeat bg-cover rounded-full h-10 w-10 border-2 border-primary/20" 
+                 style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDi_ORhEtYDtre8G6YrAKTVxAV6-jnyFq6dRJxWxU8jfJRohQlcHzuS7gxoSzox9O2zJOZYV9J7gP3pjjAj3dXYZy7nZULA6ugWSNwdVCRCi80g0t_PLt0zu8TW08ADGQhcuSFJgAtl1j9CRfZabbO0bm50sVSBML8cagvhtInZU3Km_rIL5AswM-pMt1Ial3BqjEbqHPI2TAw6Fc9vy52WoZSbjML6wyLQiMRA_vhszcd-m-hCBXUVONsUNCJGz1o0nSlXJPmWCes")' }}>
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-white text-base font-bold leading-normal">HealthMate Admin</h1>
+              <p className="text-text-dim text-xs font-normal leading-normal">System Manager</p>
+            </div>
+          </div>
+          <nav className="flex flex-col gap-2">
+            <button
+              onClick={() => navigate('/admin/dashboard')}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-text-dim hover:bg-[#28392e] hover:text-white"
+            >
+              <span className="material-symbols-outlined">dashboard</span>
+              <p className="text-sm font-medium leading-normal">Dashboard</p>
+            </button>
+            <button
+              onClick={() => navigate('/admin/users')}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-text-dim hover:bg-[#28392e] hover:text-white"
+            >
+              <span className="material-symbols-outlined">group</span>
+              <p className="text-sm font-medium leading-normal">Users</p>
+            </button>
+            <button
+              onClick={() => navigate('/admin/workouts')}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors bg-[#28392e] text-white"
+            >
+              <span className="material-symbols-outlined">fitness_center</span>
+              <p className="text-sm font-medium leading-normal">Workouts</p>
+            </button>
+            <button
+              onClick={() => navigate('/admin/logs')}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-text-dim hover:bg-[#28392e] hover:text-white"
+            >
+              <span className="material-symbols-outlined">description</span>
+              <p className="text-sm font-medium leading-normal">System Logs</p>
+            </button>
+            <button
+              onClick={() => navigate('/admin/settings')}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-text-dim hover:bg-[#28392e] hover:text-white"
+            >
+              <span className="material-symbols-outlined">settings</span>
+              <p className="text-sm font-medium leading-normal">Settings</p>
+            </button>
+          </nav>
         </div>
+        <div className="mt-auto pt-6 border-t border-[#28392e]">
+          <div className="p-4 bg-gradient-to-br from-primary/10 to-transparent rounded-xl border border-primary/10">
+            <p className="text-xs text-text-dim font-medium uppercase tracking-wider mb-2">System Status</p>
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+              </span>
+              <span className="text-sm text-white font-semibold">All Systems Go</span>
+            </div>
+            <p className="text-xs text-text-dim mt-2">Server uptime: 24d 13h</p>
+          </div>
+        </div>
+      </aside>
 
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary-dark text-background-dark text-sm font-bold transition-colors shadow-[0_0_15px_rgba(19,236,91,0.3)]"
-        >
-          <span className="material-symbols-outlined text-[18px]">add</span>
-          Create Workout
-        </button>
-      </div>
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {/* Header */}
+        <header className="flex items-center justify-between px-8 py-5 border-b border-[#28392e] bg-background-dark shrink-0">
+          <div>
+            <h2 className="text-white text-3xl font-bold tracking-tight">Workout Management</h2>
+            <p className="text-text-dim text-sm mt-1">Manage exercise library and workout programs</p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary-dark text-background-dark text-sm font-bold transition-colors shadow-[0_0_15px_rgba(19,236,91,0.3)]"
+            >
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              Create Workout
+            </button>
+            <button 
+              onClick={() => navigate('/admin/dashboard')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#28392e] hover:bg-[#344b3c] text-white text-sm font-medium transition-colors border border-transparent hover:border-primary/30"
+            >
+              <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+              Back to Dashboard
+            </button>
+          </div>
+        </header>
+
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-8 scroll-smooth">
+          <div className="max-w-7xl mx-auto flex flex-col gap-6">
 
       {/* FILTER BAR */}
       <div className="bg-surface-dark p-4 rounded-xl border border-[#28392e] flex flex-wrap items-center gap-4">
@@ -490,6 +569,9 @@ const AdminWorkoutsPage = () => {
           </div>
         </div>
       )}
+          </div>
+        </div>
+      </main>
     </div>
   );
 };

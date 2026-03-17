@@ -138,6 +138,7 @@ const Navbar = () => {
           {user?.role === 'admin' && (
             <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/dashboard">Dashboard</Link>
           )}
+          <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/overview">Overview</Link>
           <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/workouts">Workouts</Link>
           <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/meal-planner">Meal Plan</Link>
           <Link className="text-slate-600 hover:text-primary text-sm font-medium" to="/aicoach">AI Coach</Link>
