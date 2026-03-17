@@ -51,8 +51,18 @@ const FitnessGoal = () => {
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
   const displayName = parsedUser?.profile?.full_name || 'User';
   const [motivation, setMotivation] = useState(
-    "I want to feel stronger and improve my posture for my wedding in December. It's about confidence and long-term health."
+    'I want to feel stronger and improve my posture for my wedding in December. It is about confidence and long-term health.'
   );
+
+  type GoalType = 'lose_weight' | 'gain_muscle' | 'maintain_fitness' | 'improve_endurance';
+
+  const [goalType, setGoalType] = useState<GoalType>('lose_weight');
+  const [targetWeight, setTargetWeight] = useState<string>('');
+  const [weeklyWorkout, setWeeklyWorkout] = useState<string>('3');
+  const [dailyCalories, setDailyCalories] = useState<string>('2000');
+  const [stepsPerDay, setStepsPerDay] = useState<string>('8000');
+  const [completion, setCompletion] = useState<number>(30);
+  const [deadline, setDeadline] = useState<string>('');
 
   const [microGoals, setMicroGoals] = useState<MicroGoal[]>([
     { id: 1, label: 'Hit protein target (180g)', done: true },
