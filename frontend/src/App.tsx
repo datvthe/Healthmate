@@ -1,15 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './components/ProtectedRoute';
-import AdminRoute from './components/AdminRoute';
 
 // --- Import các trang ---
-import AiCoachPage from './pages/AiCoachPage';
+import AiCoachPage from './pages/user/AiCoachPage';
 import FoodCatalogPage from './pages/user/FoodCatalogPage';
 import MealPlannerPage from './pages/user/MealPlannerPage';
-import AdminDashboardPage from './pages/user/AdminDashboardPage';
-import AdminMealPlannerPage from './pages/AdminMealPlannerPage';
+import AdminFoodFormPage from './pages/admin/AdminFoodFormPage';
 import AdminFoodCatalogPage from './pages/AdminFoodCatalogPage';
+import AdminDashboard from './components/AdminDashboard';
+import UserManagement from './components/UserManagement';
 import WorkoutsPage from './pages/user/WorkoutsPage';
 import WorkoutDetailPage from "./pages/user/WorkoutDetailPage";
 import LoginPage from './pages/user/LoginPage';
@@ -18,70 +17,44 @@ import ProfilePage from './pages/user/ProfilePage';
 import HomePage from './pages/user/HomePage';
 import OnboardingPage from './pages/user/OnboardingPage';
 import FitnessGoal from './pages/user/FitnessGoals';
-import SchedulePage from './pages/user/SchedulePage';
-import OverviewPage from './pages/user/Overviewpage';
-import WorkoutUser from './pages/user/WorkoutUser';
+import WorkoutsUserPage from './pages/WorkoutsUserPage';
 import CommunityFeed from './pages/CommunityFeed';
-
+import OverviewPage from './pages/user/Overviewpage';
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: '#1e293b',
-            color: '#f1f5f9',
-          },
-          success: {
-            iconTheme: {
-              primary: '#a3e635',
-              secondary: '#1e293b',
-            },
-          },
-          error: {
-            iconTheme: {
-              primary: '#ef4444',
-              secondary: '#1e293b',
-            },
-          },
-        }}
-      />
       <Routes>
-
+        
         {/*PUBLIC ROUTES */}
-
+        
         <Route path="/" element={<Navigate to="/homepage" replace />} />
         <Route path="/homepage" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
+        <Route path="/fitness-goals" element={<FitnessGoal />} />
 
-
-        {/*  PROTECTED ROUTES (Bắt buộc đăng nhập)*/}
-
+        {/* PROTECTED ROUTES - User */}
         <Route element={<ProtectedRoute />}>
-          {/* user */}
           <Route path="/aicoach" element={<AiCoachPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/foods" element={<FoodCatalogPage />} />
           <Route path="/meal-planner" element={<MealPlannerPage />} />
-          <Route path="/workouts" element={<WorkoutsPage />} />
-          <Route path="/workouts/:id" element={<WorkoutDetailPage />} />
-          <Route path="/fitness-goals" element={<FitnessGoal />} />
-          <Route path="/schedule" element={<SchedulePage />} />
-          <Route path='/overview' element={<OverviewPage />} />
-          <Route path='/workout-user' element={<WorkoutUser />} />
-          <Route path='/community-feed' element={<CommunityFeed />} />
-          
-          {/* Admin - chỉ cho phép role === 'admin' */}
-          <Route element={<AdminRoute />}>
-            <Route path="/dashboard" element={<AdminDashboardPage />} />
-            <Route path="/dashboard/foods" element={<AdminFoodCatalogPage />} />
-            <Route path="/dashboard/meal-planner" element={<AdminMealPlannerPage />} />
-          </Route>
+          <Route path="/workouts" element={<WorkoutsUserPage />} />
+          <Route path="/community-feed" element={<CommunityFeed/>} />
+            <Route path="/overview" element={<OverviewPage/>} />
+        </Route>
+
+        {/* PROTECTED ROUTES - Admin */}
+        <Route element={<ProtectedRoute requiredRole="admin" />}>
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/users" element={<UserManagement />} />
+          <Route path="/admin/foods" element={<AdminFoodCatalogPage />} />
+          <Route path="/admin/foods/new" element={<AdminFoodFormPage />} />
+          <Route path="/admin/workouts" element={<WorkoutsPage />} />
+          <Route path="/admin/workouts/:id" element={<WorkoutDetailPage />} />
+
         </Route>
 
       </Routes>

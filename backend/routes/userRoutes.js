@@ -1,21 +1,33 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
+
 const {
   registerUser,
   loginUser,
   getMe,
   updateProfile,
-  getUsers
-} = require('../controllers/userController');
-const { protect, adminOnly } = require('../middleware/authMiddleware');
+  getUsers,
+  googleLogin,
+  getDailyRoutine,
+  updateDailyRoutine,
+} = require("../controllers/userController");
 
-router.post('/register', registerUser);
-router.post('/login', loginUser);
+const { protect, adminOnly } = require("../middleware/authMiddleware");
 
-router.get('/me', protect, getMe);
-router.put('/me', protect, updateProfile);
+// Auth
+router.post("/register", registerUser);
+router.post("/login", loginUser);
+router.post("/google-login", googleLogin);
 
-// Lấy danh sách customers (admin only)
-router.get('/', protect, adminOnly, getUsers);
+// User profile 
+router.get("/me", protect, getMe);
+router.put("/me", protect, updateProfile);
+
+// Daily routine
+router.get("/me/daily-routine", protect, getDailyRoutine);
+router.put("/me/daily-routine", protect, updateDailyRoutine);
+
+// Admin
+router.get("/", protect, adminOnly, getUsers);
 
 module.exports = router;
