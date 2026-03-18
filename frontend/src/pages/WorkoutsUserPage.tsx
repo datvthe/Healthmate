@@ -69,9 +69,11 @@ interface RecommendCardProps {
     badge: string;
     name: string;
     tags: string[];
+    workout: Workout; // 👈 thêm dòng này
+  onAdd: (w: Workout) => void; // 👈 thêm
 }
 
-const RecommendCard = ({ image, badge, name, tags }: RecommendCardProps) => (
+const RecommendCard = ({ image, badge, name, tags, workout, onAdd }: RecommendCardProps) => (
     <div className="flex-shrink-0 w-72 group relative flex flex-col overflow-hidden rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:shadow-md">
         <div className="aspect-video w-full overflow-hidden bg-slate-200 relative">
             <img className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" src={image} alt={name} />
@@ -79,12 +81,22 @@ const RecommendCard = ({ image, badge, name, tags }: RecommendCardProps) => (
         </div>
         <div className="flex flex-col p-4 gap-2">
             <h4 className="font-bold text-base">{name}</h4>
-            <div className="flex gap-2">
+
+            <div className="flex gap-2 flex-wrap">
                 {tags.map((tag) => (
-                    <span key={tag} className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 uppercase">{tag}</span>
+                    <span
+                        key={tag}
+                        className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 uppercase"
+                    >
+                        {tag}
+                    </span>
                 ))}
             </div>
-            <button className="mt-2 w-full py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-lg hover:opacity-90">
+
+            <button
+                onClick={() => onAdd(workout)} // 👈 thêm logic
+                className="mt-2 w-full py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-lg hover:opacity-90"
+            >
                 Add to Routine
             </button>
         </div>
@@ -147,6 +159,7 @@ import {
   getDailyRoutine,
   updateDailyRoutine,
 } from "../services/workoutService";
+import { getAIWorkoutRecommend } from "../services/workoutService";
 
 import { createWorkoutLog } from "../services/workoutLogService";
 
@@ -163,18 +176,23 @@ interface Workout {
    video_url?: string;  
    cover_image?: string;
    title: string;
-   
+   exercises?: {   // 👈 thêm đoạn này
+    title: string;
+    video_url?: string;
+    duration_sec?: number;
+  }[];
 }
 
 interface TodaysExercise {
   id: string;
   name: string;
+  workout_id?: string;
   startTime: string;
   endTime: string;
   image: string;
   duration: number;
   calories: number;
-  
+  video_url?: string;
   exercises?: {
     title: string
     video_url?: string
@@ -193,6 +211,24 @@ const logsPerPage = 5;
   const [dbError, setDbError] = useState<string | null>(null); // for workout fetch errors
   const [workoutSearch, setWorkoutSearch] = useState("");
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
+  // Ai recommendation state
+  const [aiRecommendations, setAiRecommendations] = useState<Workout[]>([]);
+    const [goal, setGoal] = useState<any>(null);
+  useEffect(() => {
+   if (!goal || library.length === 0 || logs.length === 0) return;
+
+  const loadAI = async () => {
+    try {
+      const rec = await getAIWorkoutRecommend(goal, logs, library);
+      setAiRecommendations(rec);
+    } catch (err) {
+      console.error("AI recommend error", err);
+      setAiRecommendations([]);
+    }
+  };
+
+  loadAI();
+}, [goal, logs, library]);
 
   // preview modal state
   const [previewWorkoutId, setPreviewWorkoutId] = useState<string | null>(null);
@@ -200,7 +236,6 @@ const logsPerPage = 5;
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
-  const [goal, setGoal] = useState<any>(null);
   const [goalProgress, setGoalProgress] = useState(0);
 
 
@@ -735,20 +770,24 @@ await loadLogs();
 
   // sample UI data used by the new layout
 
-  const recommendations: RecommendCardProps[] = [
-    {
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAXsVPx7VdS0p_sZivEdM3UANqd9RX9vrmbrufpAUP3NK_NWUrUx1bmWcg3CQR-zPRBf3_BkztMGBSCOvi2vHGuD7eUfgWySlsLpRj4n1CtrCGxiFM-21gSPJ6Z9ElZdZLgh-eEkZA8d_ZOqtQ7-mKnf9i8ZpSLrJeATfthhcmnKEwHStIq1jX534xSVqDznPk2QlHS4wlASewSoM5wATlBd-UiPgbYp5fQKc87d8-6PHEGHsR8jrmlO6FABIgbG-J_S-nvHMuyj0c',
-      badge: 'LEVEL UP', name: 'Back Squat', tags: ['Legs', 'Barbell'],
-    },
-    {
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAl0REsQeqGNwFp52PJVX7Wiy9i8Q2SHmHeGbYzOcxIKrW9PIpZAtRClLz8MP61JiW7TV-gDjMyPqFCi_2u-kqX5Z8a6B71ySr5V1OvMaj9fVcQGRPyIZSAsmBVxOVCRHBEhr7Rr0dLCZK61KM5Kfw2JgJwNWiAaLr4zqE_GxJerBse2ijF4JEI9Aibgx2cB2dE4B6r0BSEZbKX5IL4FZlwO8E8Nq6R3We4Ge2-QOcpj0Qs7KCze3NW0AEOPnVC_sBGAUkYTK1mQOc',
-      badge: 'RECOVERY', name: 'Classic Push-ups', tags: ['Chest', 'Bodyweight'],
-    },
-    {
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCoVm3WEr02l_-2EF5eaBQZr4Q5p5DV4Kmrd20k0xepK-78NrlvEFqNp05QmYQNytB6Aovqbd5_oVl4qeA7opliK8e-ljIqsDZxvjep3KTOkX7dP2CMzQjQyAGTFN0Yt-DjeSo4lCJGRnHTYS_Dw-qFh-zjrtoadXYG-NdKB16Pl-KZxBs7UOYrFNXLIjmIWJRcFVvPfjEJsA-Q1JeBqj250yNxOWYpDAT_2aI5lDs2taOZK0jzLDnliI3PRPlU5RC1e7Srn4SWVwA',
-      badge: 'SCULPT', name: 'Hammer Curls', tags: ['Arms', 'Dumbbells'],
-    },
-  ];
+const recommendations = useMemo(() => {
+  if (!aiRecommendations.length) return [];
+
+  return aiRecommendations.map((w) => ({
+    image:
+      w.cover_image ||
+      "https://placehold.co/600x400/png?text=Workout",
+    badge: w.level?.toUpperCase() || "AI",
+    name: w.title,
+    tags: [
+  typeof w.category_id === "object"
+    ? w.category_id?.name || "General"
+    : "General",
+  w.level || "All",
+],
+    workout: w, // 👈 BẮT BUỘC
+  }));
+}, [aiRecommendations]);
 
  
 
@@ -1135,9 +1174,14 @@ const scheduleDays = useMemo(() => {
               </div>
             </div>
             <div className="flex gap-6 overflow-x-auto pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              {recommendations.map((rec) => (
-                <RecommendCard key={rec.name} {...rec} />
-              ))}
+             {recommendations.map((rec) => (
+  <RecommendCard
+    key={rec.name}
+    {...rec}
+    workout={rec.workout} // 👈 thêm
+    onAdd={addToRoutine} // 👈 thêm
+  />
+))}
             </div>
           </section>
         </div>

@@ -2,17 +2,31 @@ const API_URL = "http://localhost:8000/api/workouts";
 const USER_WORKOUT_API = "http://localhost:8000/api/user/user-workouts";
 const WORKOUT_LOG_API = "http://localhost:8000/api/workout-logs";
 const USER_API = "http://localhost:8000/api/users";
+//////////////////////////////////////////////////////////////
+// TYPES
+//////////////////////////////////////////////////////////////
+
 export interface Workout {
   _id: string;
   title: string;
   level: string;
   calories_burned: number;
   description: string;
+  cover_image?: string;
+  exercises?: {
+    title: string;
+    video_url: string;
+    duration_sec: number;
+  }[];
   category_id: {
     _id: string;
     name: string;
   };
 }
+
+//////////////////////////////////////////////////////////////
+// BASIC WORKOUT APIs
+//////////////////////////////////////////////////////////////
 
 export const getWorkouts = async (
   category?: string,
@@ -28,25 +42,25 @@ export const getWorkouts = async (
   const res = await fetch(`${API_URL}?${query.join("&")}`);
   return res.json();
 };
+
 export const createWorkout = async (data: any) => {
-  const res = await fetch("http://localhost:8000/api/workouts", {
+  const res = await fetch(API_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
 
   if (!res.ok) throw new Error("Failed to create workout");
+  return res.json();
+};
 
-  return res.json();
-};
 export const getWorkoutById = async (id: string) => {
-  const res = await fetch(`http://localhost:8000/api/workouts/${id}`);
+  const res = await fetch(`${API_URL}/${id}`);
   return res.json();
 };
+
 export const updateWorkout = async (id: string, data: any) => {
-  const res = await fetch(`http://localhost:8000/api/workouts/${id}`, {
+  const res = await fetch(`${API_URL}/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -55,11 +69,16 @@ export const updateWorkout = async (id: string, data: any) => {
 };
 
 export const deleteWorkout = async (id: string) => {
-  const res = await fetch(`http://localhost:8000/api/workouts/${id}`, {
+  const res = await fetch(`${API_URL}/${id}`, {
     method: "DELETE",
   });
   return res.json();
 };
+
+//////////////////////////////////////////////////////////////
+// USER WORKOUT PLAN
+//////////////////////////////////////////////////////////////
+
 export const getWorkoutLibrary = async () => {
   const token = localStorage.getItem("token");
 
@@ -70,9 +89,9 @@ export const getWorkoutLibrary = async () => {
   });
 
   const data = await res.json();
-
   return Array.isArray(data) ? data : [];
 };
+
 export const addWorkoutPlan = async (
   workout_id: string,
   planned_duration: number = 30
@@ -93,6 +112,7 @@ export const addWorkoutPlan = async (
 
   return res.json();
 };
+
 export const getMyWorkoutPlan = async () => {
   const token = localStorage.getItem("token");
 
@@ -104,58 +124,57 @@ export const getMyWorkoutPlan = async () => {
     });
 
     if (res.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      localStorage.clear();
       window.location.href = "/login";
       return [];
     }
 
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`HTTP error!`);
 
     return await res.json();
   } catch (error) {
-    console.error("Error fetching my workout plan:", error);
-    return []; // Return empty array on error
+    console.error("Error:", error);
+    return [];
   }
 };
+
 export const startWorkout = async (id: string) => {
   const token = localStorage.getItem("token");
 
   const res = await fetch(`${USER_WORKOUT_API}/start/${id}`, {
     method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   return res.json();
 };
+
 export const finishWorkout = async (id: string) => {
   const token = localStorage.getItem("token");
 
   const res = await fetch(`${USER_WORKOUT_API}/finish/${id}`, {
     method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   return res.json();
 };
+
 export const removeWorkoutPlan = async (id: string) => {
   const token = localStorage.getItem("token");
 
   const res = await fetch(`${USER_WORKOUT_API}/${id}`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   return res.json();
 };
+
+//////////////////////////////////////////////////////////////
+// WORKOUT LOGS
+//////////////////////////////////////////////////////////////
+
 export const getMyWorkoutLogs = async () => {
   const token = localStorage.getItem("token");
 
@@ -167,22 +186,23 @@ export const getMyWorkoutLogs = async () => {
     });
 
     if (res.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      localStorage.clear();
       window.location.href = "/login";
       return [];
     }
 
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`HTTP error!`);
 
     return await res.json();
   } catch (error) {
-    console.error("Error fetching workout logs:", error);
-    return []; // Return empty array on error
+    console.error("Error:", error);
+    return [];
   }
 };
+
+//////////////////////////////////////////////////////////////
+// DAILY ROUTINE
+//////////////////////////////////////////////////////////////
 
 export const getDailyRoutine = async () => {
   const token = localStorage.getItem("token");
@@ -194,13 +214,11 @@ export const getDailyRoutine = async () => {
       },
     });
 
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`HTTP error!`);
 
     return await res.json();
   } catch (error) {
-    console.error("Error fetching daily routine:", error);
+    console.error("Error:", error);
     return [];
   }
 };
@@ -216,6 +234,42 @@ export const updateDailyRoutine = async (data: any) => {
     },
     body: JSON.stringify(data),
   });
+
+  return res.json();
+};
+
+//////////////////////////////////////////////////////////////
+// 🤖 AI RECOMMEND (NEW)
+//////////////////////////////////////////////////////////////
+
+
+
+
+export const getAIWorkoutRecommend = async (
+  goal: any,
+  logs: any[],
+  library: Workout[]
+) => {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch("http://localhost:8000/api/ai/recommend", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`, // 👈 FIX Ở ĐÂY
+    },
+    body: JSON.stringify({
+      goal,
+      logs,
+      library,
+    }),
+  });
+
+  if (res.status === 401) {
+    localStorage.clear();
+    window.location.href = "/login";
+    return [];
+  }
 
   return res.json();
 };
