@@ -9,7 +9,7 @@ const GroupManagement = () => {
   const fetchGroups = async () => {
     setLoading(true);
     try {
-      const res = await fetch('https://healthmate.onrender.com/api/community/groups');
+      const res = await fetch('https://healthmate-y9vt.onrender.com/api/community/groups');
       if (res.ok) {
         const data = await res.json();
         setGroups(data);

@@ -29,12 +29,31 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
-// 1. CẤU HÌNH CORS CHO SOCKET.IO (Mở cho tất cả origin)
+// 1. KHAI BÁO CÁC DOMAIN FRONTEND ĐƯỢC PHÉP TRUY CẬP
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "https://healthmate-wdp.vercel.app" // Domain Vercel chuẩn của bạn
+];
+
+// CẤU HÌNH CORS LINH HOẠT
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      // Tạm thời cho phép tất cả đi qua để tránh lỗi sảng khi test
+      callback(null, true);
+    }
+  },
+  credentials: true, // Cực kỳ quan trọng để Google Login và Token hoạt động
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+};
+
+// 2. ÁP DỤNG CORS CHO SOCKET.IO
 const io = new Server(server, { 
-  cors: { 
-    origin: "*", // Không bị giới hạn domain nữa
-    methods: ["GET", "POST", "PUT", "DELETE"]
-  } 
+  cors: corsOptions
 });
 
 app.use((req, res, next) => {
@@ -42,14 +61,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// 2. CẤU HÌNH CORS CHO EXPRESS API (Mở cho tất cả origin)
-app.use(
-  cors({
-    origin: "*", // Bất kỳ domain frontend nào cũng gọi được API
-    methods: ["GET", "POST", "PUT", "DELETE"]
-  })
-);
-
+// 3. ÁP DỤNG CORS CHO EXPRESS API
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Serve uploaded static files

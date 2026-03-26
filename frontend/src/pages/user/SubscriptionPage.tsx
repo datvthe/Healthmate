@@ -52,7 +52,7 @@ const SubscriptionPage = () => {
     toast.loading("Đang xác nhận giao dịch...", { id: 'payment' });
 
     try {
-      const res = await fetch('https://healthmate.onrender.com/api/subscriptions/upgrade', {
+      const res = await fetch('https://healthmate-y9vt.onrender.com/api/subscriptions/upgrade', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -81,7 +81,7 @@ const SubscriptionPage = () => {
     toast.loading("Đang khởi tạo cổng thanh toán PayOS...", { id: 'upgrade' });
 
     try {
-      const res = await fetch('https://healthmate.onrender.com/api/subscriptions/create-payment-link', {
+      const res = await fetch('https://healthmate-y9vt.onrender.com/api/subscriptions/create-payment-link', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -114,7 +114,7 @@ const SubscriptionPage = () => {
     toast.loading("Đang hủy gói Pro...", { id: 'downgrade' });
 
     try {
-      const res = await fetch('https://healthmate.onrender.com/api/subscriptions/downgrade', {
+      const res = await fetch('https://healthmate-y9vt.onrender.com/api/subscriptions/downgrade', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
