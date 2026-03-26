@@ -64,12 +64,12 @@ const AdminDashboardPage = () => {
 
         // GỌI ĐỒNG THỜI CÁC API ĐỂ LẤY DỮ LIỆU THỐNG KÊ THẬT
         const [usersRes, postsRes, groupsRes, challengesRes, foodsRes] = await Promise.all([
-          fetch('http://localhost:8000/api/users', { headers }),
-          fetch('http://localhost:8000/api/community/posts', { headers }),
-          fetch('http://localhost:8000/api/community/groups', { headers }),
-          fetch('http://localhost:8000/api/community/challenges', { headers }),
+          fetch('https://healthmate.onrender.com/api/users', { headers }),
+          fetch('https://healthmate.onrender.com/api/community/posts', { headers }),
+          fetch('https://healthmate.onrender.com/api/community/groups', { headers }),
+          fetch('https://healthmate.onrender.com/api/community/challenges', { headers }),
           // Đặt fallback cho Foods nếu API chưa hoàn thiện
-          fetch('http://localhost:8000/api/foods', { headers }).catch(() => ({ ok: false, json: () => [] }))
+          fetch('https://healthmate.onrender.com/api/foods', { headers }).catch(() => ({ ok: false, json: () => [] }))
         ]);
 
         const usersData = usersRes.ok ? await usersRes.json() : [];

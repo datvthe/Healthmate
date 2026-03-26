@@ -10,7 +10,7 @@ const ChallengeManagement = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:8000/api/community/challenges', {
+      const res = await fetch('https://healthmate.onrender.com/api/community/challenges', {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {

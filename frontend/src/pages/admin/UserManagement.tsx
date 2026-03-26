@@ -39,7 +39,7 @@ const UserManagement: React.FC = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:8000/api/users', {
+      const res = await fetch('https://healthmate.onrender.com/api/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {

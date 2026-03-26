@@ -9,7 +9,7 @@ const PostManagement = () => {
   const fetchPosts = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/community/posts');
+      const res = await fetch('https://healthmate.onrender.com/api/community/posts');
       if (res.ok) {
         const data = await res.json();
         setPosts(data);

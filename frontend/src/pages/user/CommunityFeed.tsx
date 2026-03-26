@@ -5,7 +5,7 @@ import Footer from "../../components/Footer";
 import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from 'react-hot-toast';
 
-const socket = io("http://localhost:8000");
+const socket = io("https://healthmate.onrender.com");
 
 const getAvatar = (name: string, picture?: string) => {
     if (picture && picture.trim() !== '') return picture;
@@ -38,17 +38,17 @@ const CommunityFeed = () => {
     const token = localStorage.getItem("token");
 
     useEffect(() => {
-        let url = "http://localhost:8000/api/community/posts";
+        let url = "https://healthmate.onrender.com/api/community/posts";
         if (activeView === 'group_detail' && currentGroupId) {
             url += `?groupId=${currentGroupId}`;
-            fetch(`http://localhost:8000/api/community/groups/${currentGroupId}`).then(res => res.json()).then(data => setCurrentGroupData(data));
+            fetch(`https://healthmate.onrender.com/api/community/groups/${currentGroupId}`).then(res => res.json()).then(data => setCurrentGroupData(data));
         } else {
             setCurrentGroupData(null);
         }
 
         fetch(url).then(res => res.json()).then(data => setPosts(Array.isArray(data) ? data : [])).catch(console.error);
         
-        fetch("http://localhost:8000/api/community/leaderboard")
+        fetch("https://healthmate.onrender.com/api/community/leaderboard")
             .then(res => res.json())
             .then(data => setLeaderboard(data))
             .catch(console.error);
@@ -76,7 +76,7 @@ const CommunityFeed = () => {
         if (locationInfo) formData.append("location", locationInfo);
         if (mediaFile) formData.append("media", mediaFile);
 
-        const response = await fetch("http://localhost:8000/api/community/posts", {
+        const response = await fetch("https://healthmate.onrender.com/api/community/posts", {
             method: "POST", headers: { "Authorization": `Bearer ${token}` }, body: formData
         });
 
@@ -195,7 +195,7 @@ const ChallengesView = ({ user, setActiveView }: any) => {
 
     const fetchChallenges = () => {
         // Cần gửi header Authorization để backend biết ai đang xem nhằm lấy các Private Challenge của riêng họ
-        fetch("http://localhost:8000/api/community/challenges", {
+        fetch("https://healthmate.onrender.com/api/community/challenges", {
             headers: token ? { "Authorization": `Bearer ${token}` } : {}
         })
             .then(res => res.json()).then(data => setChallenges(data)).catch(console.error);
@@ -205,7 +205,7 @@ const ChallengesView = ({ user, setActiveView }: any) => {
 
     const handleCreate = async () => {
         if (!formData.title || !formData.target || !token) return;
-        const res = await fetch("http://localhost:8000/api/community/challenges", {
+        const res = await fetch("https://healthmate.onrender.com/api/community/challenges", {
             method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
             body: JSON.stringify({ 
                 title: formData.title, 
@@ -224,7 +224,7 @@ const ChallengesView = ({ user, setActiveView }: any) => {
 
     const handleJoin = async (id: string) => {
         if (!token) return;
-        const res = await fetch(`http://localhost:8000/api/community/challenges/${id}/join`, {
+        const res = await fetch(`https://healthmate.onrender.com/api/community/challenges/${id}/join`, {
             method: "PUT", headers: { "Authorization": `Bearer ${token}` }
         });
         if (res.ok) { toast.success("Đã tham gia thử thách!"); fetchChallenges(); }
@@ -329,7 +329,7 @@ const DiscoverGroups = ({ user, setActiveView, setCurrentGroupId }: any) => {
     const token = localStorage.getItem("token");
 
     const fetchGroups = () => {
-        fetch("http://localhost:8000/api/community/groups")
+        fetch("https://healthmate.onrender.com/api/community/groups")
             .then(res => res.json())
             .then(data => setGroups(data))
             .catch(err => console.error(err));
@@ -339,7 +339,7 @@ const DiscoverGroups = ({ user, setActiveView, setCurrentGroupId }: any) => {
 
     const handleCreateGroup = async () => {
         if(!newGroupName.trim() || !token) return;
-        const res = await fetch("http://localhost:8000/api/community/groups", {
+        const res = await fetch("https://healthmate.onrender.com/api/community/groups", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
             body: JSON.stringify({ name: newGroupName, description: newGroupDesc })
@@ -353,7 +353,7 @@ const DiscoverGroups = ({ user, setActiveView, setCurrentGroupId }: any) => {
 
     const handleJoinGroup = async (groupId: string) => {
         if(!token) return;
-        const res = await fetch(`http://localhost:8000/api/community/groups/${groupId}/join`, {
+        const res = await fetch(`https://healthmate.onrender.com/api/community/groups/${groupId}/join`, {
             method: "PUT",
             headers: { "Authorization": `Bearer ${token}` }
         });
@@ -421,7 +421,7 @@ const CommunityGroupsPreview = ({ setActiveView, setCurrentGroupId }: any) => {
     const [previewGroups, setPreviewGroups] = useState<any[]>([]);
 
     useEffect(() => {
-        fetch("http://localhost:8000/api/community/groups")
+        fetch("https://healthmate.onrender.com/api/community/groups")
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data)) setPreviewGroups(data.slice(0, 3));
@@ -586,7 +586,7 @@ const PostCard = ({ post, currentUserId, token, navigate, onUpdate }: any) => {
     const toggleAction = async (action: 'like' | 'save') => {
         if (!token) return navigate("/login");
         try {
-            const response = await fetch(`http://localhost:8000/api/community/posts/${post._id}/${action}`, {
+            const response = await fetch(`https://healthmate.onrender.com/api/community/posts/${post._id}/${action}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }
             });
@@ -601,7 +601,7 @@ const PostCard = ({ post, currentUserId, token, navigate, onUpdate }: any) => {
         if (!token) return navigate("/login");
         if (!commentText.trim()) return;
         try {
-            const response = await fetch(`http://localhost:8000/api/community/posts/${post._id}/comment`, {
+            const response = await fetch(`https://healthmate.onrender.com/api/community/posts/${post._id}/comment`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
                 body: JSON.stringify({ text: commentText })
