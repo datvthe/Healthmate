@@ -21,7 +21,8 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: 'skillmatch_videos', 
-    allowedFormats: ['jpg', 'png', 'jpeg', 'mp4', 'webm', 'mov'],
+    // FIX LỖI Ở ĐÂY: Sửa allowedFormats thành allowed_formats
+    allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'mp4', 'webm', 'mov'],
     resource_type: 'auto' 
   }
 });
@@ -39,7 +40,7 @@ try {
     metric: { type: String, required: true }, 
     creator: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    isPrivate: { type: Boolean, default: false }, // TRƯỜNG MỚI: Đánh dấu riêng tư
+    isPrivate: { type: Boolean, default: false }, 
     createdAt: { type: Date, default: Date.now }
   });
   Challenge = mongoose.model('Challenge', challengeSchema);
