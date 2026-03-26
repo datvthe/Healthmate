@@ -22,23 +22,40 @@ const microGoalRoutes = require("./routes/microGoalRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 const communityRoutes = require("./routes/community");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
+
 // Kết nối database
 connectDB();
 
+// 1. KHAI BÁO CÁC DOMAIN ĐƯỢC PHÉP TRUY CẬP
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "https://healthmate-wdp.vercel.app" // <-- Domain Vercel của bạn
+];
+
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+
+// 2. CẤU HÌNH CORS CHO SOCKET.IO
+const io = new Server(server, { 
+  cors: { 
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true // BẮT BUỘC PHẢI CÓ
+  } 
+});
+
 app.use((req, res, next) => {
-  req.io = io; // Gán io vào request
+  req.io = io; 
   next();
 });
 
-// Middleware
-// Gộp cấu hình CORS lại thành 1 lần duy nhất
+// 3. CẤU HÌNH CORS CHO EXPRESS API
 app.use(
   cors({
-    origin: "*", 
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: allowedOrigins,
+    credentials: true, // BẮT BUỘC PHẢI CÓ
   })
 );
 
@@ -57,7 +74,7 @@ app.use("/api/foods", foodRoutes);
 app.use("/api/meal-plans", mealPlanRoutes);
 app.use("/api/progress", progressRoutes);
 app.use("/api/workout-logs", workoutLogRoutes);
-app.use("/api/user/user-workouts", userWorkoutRoutes); // user
+app.use("/api/user/user-workouts", userWorkoutRoutes);
 app.use("/api/goals", goalRoutes);
 app.use("/api/micro-goals", microGoalRoutes);
 app.use("/api/ai", aiRoutes);
