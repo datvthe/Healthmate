@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import toast, { Toaster } from 'react-hot-toast';
 
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000' : 'https://healthmate-y9vt.onrender.com');
+
 const GroupManagement = () => {
   const [groups, setGroups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -9,24 +11,32 @@ const GroupManagement = () => {
   const fetchGroups = async () => {
     setLoading(true);
     try {
-      const res = await fetch('https://healthmate.onrender.com/api/community/groups');
+      const res = await fetch(`${API_URL}/api/community/groups`);
       if (res.ok) {
         const data = await res.json();
         setGroups(data);
       }
-    } catch (error) {
-      toast.error('Lỗi khi lấy dữ liệu hội nhóm');
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { toast.error('Lỗi khi lấy dữ liệu hội nhóm'); } 
+    finally { setLoading(false); }
   };
 
   useEffect(() => { fetchGroups(); }, []);
 
   const handleDelete = async (id: string) => {
     if(window.confirm('Bạn có chắc chắn muốn giải tán nhóm này? Mọi bài viết trong nhóm sẽ bị xóa.')) {
-        setGroups(prev => prev.filter(g => g._id !== id));
-        toast.success("Đã xóa nhóm thành công.");
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/api/admin/groups/${id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                setGroups(prev => prev.filter(g => g._id !== id));
+                toast.success("Đã giải tán nhóm thành công.");
+            } else {
+                toast.error("Lỗi khi xóa nhóm.");
+            }
+        } catch (error) { toast.error("Lỗi kết nối."); }
     }
   };
 

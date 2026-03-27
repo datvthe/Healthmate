@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import toast, { Toaster } from 'react-hot-toast';
 
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000' : 'https://healthmate-y9vt.onrender.com');
+
 const PostManagement = () => {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -9,25 +11,32 @@ const PostManagement = () => {
   const fetchPosts = async () => {
     setLoading(true);
     try {
-      const res = await fetch('https://healthmate.onrender.com/api/community/posts');
+      const res = await fetch(`${API_URL}/api/community/posts`);
       if (res.ok) {
         const data = await res.json();
         setPosts(data);
       }
-    } catch (error) {
-      toast.error('Lỗi khi lấy dữ liệu bài viết');
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { toast.error('Lỗi khi lấy dữ liệu bài viết'); } 
+    finally { setLoading(false); }
   };
 
   useEffect(() => { fetchPosts(); }, []);
 
   const handleDelete = async (id: string) => {
-    if(window.confirm('Xóa vĩnh viễn bài viết này?')) {
-        // Gọi API xóa thực tế ở đây
-        setPosts(prev => prev.filter(p => p._id !== id));
-        toast.success("Đã xóa bài viết.");
+    if(window.confirm('Xóa vĩnh viễn bài viết này khỏi cộng đồng?')) {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/api/admin/posts/${id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                setPosts(prev => prev.filter(p => p._id !== id));
+                toast.success("Đã xóa bài viết.");
+            } else {
+                toast.error("Lỗi khi xóa bài viết.");
+            }
+        } catch (error) { toast.error("Lỗi kết nối."); }
     }
   };
 

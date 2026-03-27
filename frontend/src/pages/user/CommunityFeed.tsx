@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { io } from "socket.io-client";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from 'react-hot-toast';
+import { API_URL } from "../../config"; // CHUẨN HOÁ BIẾN MÔI TRƯỜNG TỰ ĐỘNG
 
-const socket = io("https://healthmate.onrender.com");
+const socket = io(API_URL);
 
 const getAvatar = (name: string, picture?: string) => {
     if (picture && picture.trim() !== '') return picture;
@@ -26,48 +27,68 @@ const CommunityFeed = () => {
     
     const [activeTab, setActiveTab] = useState('all');
     const [posts, setPosts] = useState<any[]>([]);
-    
+    const [challenges, setChallenges] = useState<any[]>([]);
     const [leaderboard, setLeaderboard] = useState<{workout: any[], contribution: any[], challenge: any[]}>({ workout: [], contribution: [], challenge: [] });
     
     const [content, setContent] = useState("");
     const [mediaFile, setMediaFile] = useState<File | null>(null);
     const [locationInfo, setLocationInfo] = useState<string>("");
+    const [selectedHashtag, setSelectedHashtag] = useState<string | null>(null);
 
     const navigate = useNavigate();
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const token = localStorage.getItem("token");
 
-    useEffect(() => {
-        let url = "https://healthmate.onrender.com/api/community/posts";
+    const fetchChallenges = () => {
+        fetch(`${API_URL}/api/community/challenges`, {
+            headers: token ? { "Authorization": `Bearer ${token}` } : {}
+        })
+        .then(res => res.json()).then(data => setChallenges(data)).catch(console.error);
+    };
+
+    const fetchPostsData = () => {
+        let url = `${API_URL}/api/community/posts`;
         if (activeView === 'group_detail' && currentGroupId) {
             url += `?groupId=${currentGroupId}`;
-            fetch(`https://healthmate.onrender.com/api/community/groups/${currentGroupId}`).then(res => res.json()).then(data => setCurrentGroupData(data));
+        }
+        fetch(url).then(res => res.json()).then(data => setPosts(Array.isArray(data) ? data : [])).catch(console.error);
+    };
+
+    useEffect(() => {
+        if (activeView === 'group_detail' && currentGroupId) {
+            fetch(`${API_URL}/api/community/groups/${currentGroupId}`).then(res => res.json()).then(data => setCurrentGroupData(data));
         } else {
             setCurrentGroupData(null);
         }
 
-        fetch(url).then(res => res.json()).then(data => setPosts(Array.isArray(data) ? data : [])).catch(console.error);
-        
-        fetch("https://healthmate.onrender.com/api/community/leaderboard")
-            .then(res => res.json())
-            .then(data => setLeaderboard(data))
-            .catch(console.error);
+        fetchPostsData();
+        fetch(`${API_URL}/api/community/leaderboard`).then(res => res.json()).then(data => setLeaderboard(data)).catch(console.error);
+        fetchChallenges();
     }, [activeView, currentGroupId]);
 
     useEffect(() => {
         socket.on('new_post', (newPost) => {
             const isGroupMatch = activeView === 'group_detail' ? newPost.groupId === currentGroupId : !newPost.groupId;
-            if (isGroupMatch) setPosts(prev => [newPost, ...prev]);
+            if (isGroupMatch) {
+                // 🔴 THUẬT TOÁN CHỐNG TRÙNG LẶP NẾU SOCKET GỬI CHẬM
+                setPosts(prev => {
+                    if (prev.some(p => p._id === newPost._id)) return prev;
+                    return [newPost, ...prev];
+                });
+            }
         });
         socket.on('post_updated', (updatedPost) => {
             setPosts(prev => prev.map(p => p._id === updatedPost._id ? updatedPost : p));
         });
-        return () => { socket.off('new_post'); socket.off('post_updated'); };
+        socket.on('post_deleted', (deletedId) => {
+            setPosts(prev => prev.filter(p => p._id !== deletedId));
+        });
+        return () => { socket.off('new_post'); socket.off('post_updated'); socket.off('post_deleted'); };
     }, [activeView, currentGroupId]);
 
     const handlePost = async () => {
         if (!token) return navigate("/login");
-        if (!content.trim() && !mediaFile) return;
+        if (!content.trim() && !mediaFile) return toast.error("Vui lòng nhập nội dung hoặc chọn ảnh/video.");
 
         const formData = new FormData();
         formData.append("content", content);
@@ -76,23 +97,45 @@ const CommunityFeed = () => {
         if (locationInfo) formData.append("location", locationInfo);
         if (mediaFile) formData.append("media", mediaFile);
 
-        const response = await fetch("https://healthmate.onrender.com/api/community/posts", {
+        const response = await fetch(`${API_URL}/api/community/posts`, {
             method: "POST", headers: { "Authorization": `Bearer ${token}` }, body: formData
         });
 
         if (response.ok) {
-            const newPost = await response.json();
-            setPosts(prev => [newPost, ...prev]);
+            const newPostData = await response.json(); // Lấy luôn bài vừa đăng
             setContent(""); setMediaFile(null); setLocationInfo("");
             toast.success("Đã đăng bài thành công!");
+            
+            // 🔴 CẬP NHẬT LÊN FEED TỨC THÌ (REALTIME BẰNG STATE)
+            setPosts(prev => {
+                if (prev.some(p => p._id === newPostData._id)) return prev;
+                return [newPostData, ...prev];
+            });
+        } else {
+            const err = await response.json(); toast.error(err.message || "Lỗi khi đăng bài.");
         }
     };
 
-    const handleUpdatePost = (updatedPost: any) => {
-        setPosts(prev => prev.map(p => p._id === updatedPost._id ? updatedPost : p));
-    };
+    const handleUpdatePost = (updatedPost: any) => setPosts(prev => prev.map(p => p._id === updatedPost._id ? updatedPost : p));
+    const handleDeletePostLocal = (id: string) => setPosts(prev => prev.filter(p => p._id !== id));
+
+    const trendingTags = useMemo(() => {
+        const tagCounts: Record<string, number> = {};
+        posts.forEach(post => {
+            if (!post.content) return;
+            const matches = post.content.match(/(#[\p{L}\p{N}_]+)/gu);
+            if (matches) {
+                matches.forEach((tag: string) => {
+                    const t = tag.toLowerCase();
+                    tagCounts[t] = (tagCounts[t] || 0) + 1;
+                });
+            }
+        });
+        return Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(entry => entry[0]);
+    }, [posts]);
 
     const filteredPosts = posts.filter(post => {
+        if (selectedHashtag) return post.content?.toLowerCase().includes(selectedHashtag.toLowerCase());
         if (activeTab === 'all') return true;
         if (activeTab === 'ai') return post.isAIPost || post.tag === 'AI Coach';
         if (activeTab === 'saved') return post.savedBy?.includes(currentUser._id);
@@ -105,11 +148,11 @@ const CommunityFeed = () => {
             <Toaster position="top-right"/>
             <main className="flex-grow max-w-[1280px] mx-auto px-6 py-8 w-full">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                    
                     <div className="hidden lg:block lg:col-span-3 sticky top-24">
                         <div className="flex flex-col gap-6">
                             <LeftSidebar activeView={activeView} setActiveView={(view: string) => {
-                                setActiveView(view);
+                                setActiveView(view); 
+                                setSelectedHashtag(null);
                                 if(view !== 'group_detail') setCurrentGroupId(null);
                             }} user={currentUser} />
                             <CommunityGroupsPreview setActiveView={setActiveView} setCurrentGroupId={setCurrentGroupId} />
@@ -117,7 +160,6 @@ const CommunityFeed = () => {
                     </div>
 
                     <div className="lg:col-span-6 flex flex-col gap-6">
-                        
                         {(activeView === 'feed' || activeView === 'group_detail') && (
                             <>
                                 {activeView === 'group_detail' && currentGroupData && (
@@ -126,54 +168,51 @@ const CommunityFeed = () => {
                                         <div className="p-5">
                                             <h2 className="text-xl font-black dark:text-white">{currentGroupData.name}</h2>
                                             <p className="text-sm text-slate-500 mt-1">{currentGroupData.description}</p>
-                                            <div className="flex items-center gap-4 mt-4 text-xs font-bold text-slate-600 dark:text-slate-400">
-                                                <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">group</span> {currentGroupData.members?.length} Members</span>
-                                                <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">shield_person</span> Admin: {currentGroupData.admin?.profile?.full_name}</span>
-                                            </div>
                                         </div>
                                     </div>
                                 )}
 
-                                {token && (
-                                    <ShareUpdateSection 
-                                        content={content} setContent={setContent} 
-                                        mediaFile={mediaFile} setMediaFile={setMediaFile}
-                                        locationInfo={locationInfo} setLocationInfo={setLocationInfo}
-                                        handlePost={handlePost} user={currentUser} 
-                                    />
-                                )}
+                                {token && <ShareUpdateSection content={content} setContent={setContent} mediaFile={mediaFile} setMediaFile={setMediaFile} locationInfo={locationInfo} setLocationInfo={setLocationInfo} handlePost={handlePost} user={currentUser} />}
                                 
-                                {activeView === 'feed' && (
+                                {activeView === 'feed' && !selectedHashtag && (
                                     <div className="flex border-b border-slate-200 dark:border-slate-800 gap-8">
                                         {[ { id: 'all', label: 'All Posts' }, { id: 'ai', label: 'AI Coach' }, { id: 'saved', label: 'Saved' } ].map(tab => (
-                                            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                                                className={`pb-3 text-sm font-bold uppercase tracking-tighter transition-colors ${
-                                                    activeTab === tab.id ? 'border-b-2 border-primary text-slate-900 dark:text-white' : 'text-slate-500 hover:text-primary'
-                                                }`}>{tab.label}
-                                            </button>
+                                            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`pb-3 text-sm font-bold uppercase tracking-tighter transition-colors ${activeTab === tab.id ? 'border-b-2 border-primary text-slate-900 dark:text-white' : 'text-slate-500 hover:text-primary'}`}>{tab.label}</button>
                                         ))}
+                                    </div>
+                                )}
+
+                                {selectedHashtag && (
+                                    <div className="flex items-center justify-between bg-primary/10 border border-primary/20 p-4 rounded-xl">
+                                        <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                                            Đang hiển thị bài viết cho: <span className="text-primary text-base">{selectedHashtag}</span>
+                                        </p>
+                                        <button onClick={() => setSelectedHashtag(null)} className="text-xs font-black bg-white dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white px-3 py-1.5 rounded-lg shadow-sm transition-colors">
+                                            Hủy bộ lọc ✕
+                                        </button>
                                     </div>
                                 )}
 
                                 <div className="space-y-6">
                                     {filteredPosts.length > 0 ? (
                                         filteredPosts.map(post => (
-                                            <PostCard key={post._id} post={post} currentUserId={currentUser._id} token={token} navigate={navigate} onUpdate={handleUpdatePost} />
+                                            <PostCard key={post._id} post={post} currentUserId={currentUser._id} token={token} navigate={navigate} onUpdate={handleUpdatePost} onDelete={handleDeletePostLocal} challenges={challenges} fetchChallenges={fetchChallenges} onTagClick={setSelectedHashtag} />
                                         ))
-                                    ) : <p className="text-center text-slate-500 py-10">Chưa có bài viết nào.</p>}
+                                    ) : <p className="text-center text-slate-500 py-10">Không có bài viết nào phù hợp.</p>}
                                 </div>
                             </>
                         )}
-                        
                         {activeView === 'leaderboard' && <LeaderboardView data={leaderboard} />}
                         {activeView === 'groups' && <DiscoverGroups user={currentUser} setActiveView={setActiveView} setCurrentGroupId={setCurrentGroupId} />}
-                        {activeView === 'challenges' && <ChallengesView user={currentUser} setActiveView={setActiveView} />}
+                        
+                        {/* 🔴 TRUYỀN HÀM fetchPostsData XUỐNG CHALLENGES ĐỂ CẬP NHẬT TỨC THÌ */}
+                        {activeView === 'challenges' && <ChallengesView user={currentUser} challenges={challenges} fetchChallenges={fetchChallenges} fetchPostsData={fetchPostsData} />}
                     </div>
 
                     <div className="hidden lg:block lg:col-span-3 sticky top-24">
                         <div className="flex flex-col gap-6">
                             <RightLeaderboardPreview data={leaderboard} setActiveView={setActiveView} />
-                            <TrendingTags />
+                            <TrendingTags tags={trendingTags} selectedHashtag={selectedHashtag} onTagClick={setSelectedHashtag} />
                         </div>
                     </div>
                 </div>
@@ -183,71 +222,63 @@ const CommunityFeed = () => {
     );
 };
 
-// ─── CHALLENGES VIEW ĐÃ ĐƯỢC THÊM TÙY CHỌN PRIVATE ───
-
-const ChallengesView = ({ user, setActiveView }: any) => {
-    const [challenges, setChallenges] = useState<any[]>([]);
+// ─── CHALLENGES VIEW ───
+const ChallengesView = ({ user, challenges, fetchChallenges, fetchPostsData }: any) => {
     const [showCreate, setShowCreate] = useState(false);
-    
-    // Thêm trường isPrivate vào state form
     const [formData, setFormData] = useState({ title: '', target: '', metric: 'KM', isPrivate: false });
+    const [localJoinedIds, setLocalJoinedIds] = useState<string[]>([]);
     const token = localStorage.getItem("token");
 
-    const fetchChallenges = () => {
-        // Cần gửi header Authorization để backend biết ai đang xem nhằm lấy các Private Challenge của riêng họ
-        fetch("https://healthmate.onrender.com/api/community/challenges", {
-            headers: token ? { "Authorization": `Bearer ${token}` } : {}
-        })
-            .then(res => res.json()).then(data => setChallenges(data)).catch(console.error);
-    };
-
-    useEffect(() => { fetchChallenges(); }, []);
-
     const handleCreate = async () => {
-        if (!formData.title || !formData.target || !token) return;
-        const res = await fetch("https://healthmate.onrender.com/api/community/challenges", {
+        if (!token) return;
+        if (!formData.title || formData.title.trim().length < 5) return toast.error("Tên thử thách phải từ 5 ký tự trở lên.");
+        
+        const targetValue = Number(formData.target);
+        if (!targetValue || targetValue <= 0) return toast.error("Mục tiêu phải là số lớn hơn 0.");
+
+        const limits: Record<string, number> = { 'KM': 10000, 'Lần': 100000, 'Giờ': 5000, 'Ngày': 365 };
+        const maxAllowed = limits[formData.metric] || 10000;
+
+        if (targetValue > maxAllowed) return toast.error(`Mục tiêu quá phi lý! Tối đa cho ${formData.metric} là ${maxAllowed.toLocaleString('vi-VN')}.`);
+
+        const res = await fetch(`${API_URL}/api/community/challenges`, {
             method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-            body: JSON.stringify({ 
-                title: formData.title, 
-                target: Number(formData.target), 
-                metric: formData.metric,
-                isPrivate: formData.isPrivate // Gửi kèm thuộc tính Private
-            })
+            body: JSON.stringify({ title: formData.title, target: targetValue, metric: formData.metric, isPrivate: formData.isPrivate })
         });
         if (res.ok) {
             toast.success(formData.isPrivate ? "Tạo thử thách riêng tư thành công!" : "Tạo thử thách thành công! Đã chia sẻ lên Feed.");
-            setShowCreate(false); 
-            setFormData({ title: '', target: '', metric: 'KM', isPrivate: false });
-            fetchChallenges();
+            setShowCreate(false); setFormData({ title: '', target: '', metric: 'KM', isPrivate: false });
+            
+            // 🔴 LÀM MỚI FEED TỨC THÌ ĐỂ HIỆN BÀI CHIA SẺ THỬ THÁCH
+            fetchChallenges(); 
+            fetchPostsData();
+        } else {
+            const err = await res.json(); toast.error(err.message || "Lỗi tạo thử thách.");
         }
     };
 
     const handleJoin = async (id: string) => {
         if (!token) return;
-        const res = await fetch(`https://healthmate.onrender.com/api/community/challenges/${id}/join`, {
-            method: "PUT", headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (res.ok) { toast.success("Đã tham gia thử thách!"); fetchChallenges(); }
+        setLocalJoinedIds(prev => [...prev, id]); 
+        const res = await fetch(`${API_URL}/api/community/challenges/${id}/join`, { method: "PUT", headers: { "Authorization": `Bearer ${token}` } });
+        if (res.ok) { toast.success("Đã tham gia thử thách!"); fetchChallenges(); } 
+        else { setLocalJoinedIds(prev => prev.filter(joinedId => joinedId !== id)); }
     };
 
     return (
         <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary">stars</span> Thử thách cộng đồng
-                </h2>
-                <button onClick={() => setShowCreate(!showCreate)} className="bg-primary text-slate-900 px-4 py-2 rounded-lg text-sm font-bold shadow-sm active:scale-95 transition-all">
-                    + Tạo Thử Thách
-                </button>
+                <h2 className="text-xl font-bold dark:text-white flex items-center gap-2"><span className="material-symbols-outlined text-primary">stars</span> Thử thách cộng đồng</h2>
+                <button onClick={() => setShowCreate(!showCreate)} className="bg-primary text-slate-900 px-4 py-2 rounded-lg text-sm font-bold shadow-sm active:scale-95 transition-all">+ Tạo Thử Thách</button>
             </div>
 
             {showCreate && (
                 <div className="mb-8 p-5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 animate-fade-in">
                     <h3 className="font-bold text-sm mb-4 dark:text-white">Khởi tạo Thử Thách Mới</h3>
                     <div className="space-y-3 mb-4">
-                        <input type="text" placeholder="Tên thử thách (VD: Chạy bộ xuyên Việt)" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full px-3 py-2 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-white text-sm outline-none focus:border-primary" />
+                        <input type="text" placeholder="Tên thử thách (Tối thiểu 5 ký tự)" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full px-3 py-2 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-white text-sm outline-none focus:border-primary" />
                         <div className="flex gap-3">
-                            <input type="number" placeholder="Mục tiêu (Số)" value={formData.target} onChange={e => setFormData({...formData, target: e.target.value})} className="w-2/3 px-3 py-2 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-white text-sm outline-none focus:border-primary" />
+                            <input type="number" min="1" placeholder="Mục tiêu (>0)" value={formData.target} onChange={e => setFormData({...formData, target: e.target.value})} className="w-2/3 px-3 py-2 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-white text-sm outline-none focus:border-primary" />
                             <select value={formData.metric} onChange={e => setFormData({...formData, metric: e.target.value})} className="w-1/3 px-3 py-2 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-white text-sm outline-none focus:border-primary">
                                 <option value="KM">KM</option>
                                 <option value="Lần">Lần</option>
@@ -255,18 +286,9 @@ const ChallengesView = ({ user, setActiveView }: any) => {
                                 <option value="Ngày">Ngày</option>
                             </select>
                         </div>
-                        {/* CHECKBOX PRIVATE */}
                         <div className="flex items-center gap-2 pt-2">
-                            <input 
-                                type="checkbox" 
-                                id="isPrivate" 
-                                checked={formData.isPrivate} 
-                                onChange={e => setFormData({...formData, isPrivate: e.target.checked})} 
-                                className="rounded border-slate-300 text-primary focus:ring-primary size-4" 
-                            />
-                            <label htmlFor="isPrivate" className="text-sm dark:text-slate-300 cursor-pointer select-none font-medium">
-                                Thử thách riêng tư (Không đăng lên Bảng tin)
-                            </label>
+                            <input type="checkbox" id="isPrivate" checked={formData.isPrivate} onChange={e => setFormData({...formData, isPrivate: e.target.checked})} className="rounded border-slate-300 text-primary focus:ring-primary size-4" />
+                            <label htmlFor="isPrivate" className="text-sm dark:text-slate-300 cursor-pointer select-none font-medium">Thử thách riêng tư (Không đăng lên Feed)</label>
                         </div>
                     </div>
                     <div className="flex gap-2 justify-end">
@@ -277,19 +299,13 @@ const ChallengesView = ({ user, setActiveView }: any) => {
             )}
 
             <div className="grid grid-cols-1 gap-6">
-                {challenges.map(c => {
-                    const isJoined = c.participants?.some((p:any) => p._id === user._id);
+                {challenges.map((c: any) => {
+                    const isJoinedDb = c.participants?.some((p:any) => p._id === user._id || p === user._id);
+                    const isJoined = isJoinedDb || localJoinedIds.includes(c._id);
                     return (
                         <div key={c._id} className="bg-slate-900 p-6 rounded-2xl text-white relative overflow-hidden shadow-lg border border-slate-800">
                             <div className="absolute top-0 right-0 size-32 bg-primary/20 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none"></div>
-                            
-                            {/* NẾU LÀ PRIVATE THÌ HIỂN THỊ ICON KHÓA */}
-                            {c.isPrivate && (
-                                <div className="absolute top-4 right-4 bg-white/10 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1">
-                                    <span className="material-symbols-outlined text-[12px]">lock</span> Private
-                                </div>
-                            )}
-
+                            {c.isPrivate && <div className="absolute top-4 right-4 bg-white/10 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">lock</span> Private</div>}
                             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 mt-2">
                                 <div>
                                     <p className="text-primary font-black text-[10px] uppercase mb-1.5 tracking-[0.2em]">Cộng đồng</p>
@@ -301,11 +317,7 @@ const ChallengesView = ({ user, setActiveView }: any) => {
                                         <p className="text-3xl font-black text-primary leading-none">{c.target} <span className="text-base text-white">{c.metric}</span></p>
                                         <p className="text-[10px] text-slate-400 uppercase mt-1">{c.participants?.length || 0} Người tham gia</p>
                                     </div>
-                                    <button 
-                                        onClick={() => !isJoined && handleJoin(c._id)} 
-                                        disabled={isJoined}
-                                        className={`px-6 py-2 rounded-full text-sm font-bold uppercase tracking-wider transition-all ${isJoined ? 'bg-white/10 text-white cursor-not-allowed border border-white/20' : 'bg-primary text-black hover:brightness-110 shadow-[0_0_15px_rgba(18,236,91,0.3)]'}`}
-                                    >
+                                    <button onClick={() => !isJoined && handleJoin(c._id)} disabled={isJoined} className={`px-6 py-2 rounded-full text-sm font-bold uppercase tracking-wider transition-all ${isJoined ? 'bg-white/10 text-white cursor-not-allowed border border-white/20' : 'bg-primary text-black hover:brightness-110 shadow-[0_0_15px_rgba(18,236,91,0.3)]'}`}>
                                         {isJoined ? 'Đã tham gia' : 'Tham gia ngay'}
                                     </button>
                                 </div>
@@ -319,8 +331,247 @@ const ChallengesView = ({ user, setActiveView }: any) => {
     );
 };
 
-// ─── CÁC COMPONENT CÒN LẠI (GIỮ NGUYÊN TỪ PHIÊN BẢN TRƯỚC) ───
+// ─── POST CARD ───
+const PostCard = ({ post, currentUserId, token, navigate, onUpdate, onDelete, challenges, fetchChallenges, onTagClick }: any) => {
+    const [showComments, setShowComments] = useState(false);
+    const [commentText, setCommentText] = useState("");
+    const [showMenu, setShowMenu] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editContent, setEditContent] = useState(post.content);
+    const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+    const [localJoined, setLocalJoined] = useState(false);
 
+    const isOwner = post.user?._id === currentUserId;
+    const isLiked = post.likes?.includes(currentUserId);
+    const isSaved = post.savedBy?.includes(currentUserId);
+    const isAI = post.isAIPost || post.tag === 'AI Coach';
+
+    const menuRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) setShowMenu(false);
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    let isChallengePost = false;
+    let challengeTitle = "";
+    let challengeTarget = "";
+    let associatedChallenge: any = null;
+    let isJoinedDb = false;
+
+    if (post.tag === 'Challenge') {
+        const titleMatch = post.content.match(/\*\*(.*?)\*\*/);
+        const targetMatch = post.content.match(/\(Mục tiêu: (.*?)\)/);
+        if (titleMatch && targetMatch) {
+            isChallengePost = true;
+            challengeTitle = titleMatch[1];
+            challengeTarget = targetMatch[1];
+            associatedChallenge = challenges.find((c: any) => c.title === challengeTitle);
+            if (associatedChallenge) {
+                isJoinedDb = associatedChallenge.participants?.some((p:any) => p._id === currentUserId || p === currentUserId);
+            }
+        }
+    }
+
+    const isUserJoined = isJoinedDb || localJoined;
+
+    const handleJoinFromPost = async () => {
+        if (!associatedChallenge || !token) return;
+        try {
+            setLocalJoined(true); 
+            const res = await fetch(`${API_URL}/api/community/challenges/${associatedChallenge._id}/join`, {
+                method: "PUT", headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (res.ok) { toast.success("Đã tham gia thử thách!"); fetchChallenges(); } 
+            else { setLocalJoined(false); }
+        } catch (error) { setLocalJoined(false); toast.error("Lỗi khi tham gia."); }
+    };
+
+    const toggleAction = async (action: 'like' | 'save') => {
+        if (!token) return navigate("/login");
+        try {
+            const res = await fetch(`${API_URL}/api/community/posts/${post._id}/${action}`, { method: "PUT", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` } });
+            if (res.ok) { const updated = await res.json(); onUpdate(updated); }
+        } catch (error) { console.error(`Lỗi:`, error); }
+    };
+
+    const submitComment = async () => {
+        if (!token) return navigate("/login");
+        if (!commentText.trim()) return;
+        try {
+            const res = await fetch(`${API_URL}/api/community/posts/${post._id}/comment`, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }, body: JSON.stringify({ text: commentText }) });
+            if (res.ok) { const updated = await res.json(); onUpdate(updated); setCommentText(""); }
+        } catch (error) { console.error("Lỗi comment:", error); }
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editContent.trim()) return toast.error("Nội dung không được để trống.");
+        setIsSubmittingEdit(true);
+        try {
+            const res = await fetch(`${API_URL}/api/community/posts/${post._id}`, {
+                method: "PUT", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                body: JSON.stringify({ content: editContent })
+            });
+            if (res.ok) {
+                const updated = await res.json();
+                onUpdate(updated); setIsEditing(false); toast.success("Đã cập nhật bài viết!");
+            } else {
+                const err = await res.json(); toast.error(err.message);
+            }
+        } catch (error) { toast.error("Lỗi khi cập nhật."); }
+        setIsSubmittingEdit(false);
+    };
+
+    const handleDelete = async () => {
+        if (window.confirm("Xóa bài viết này?")) {
+            try {
+                const res = await fetch(`${API_URL}/api/community/posts/${post._id}`, {
+                    method: "DELETE", headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (res.ok) { toast.success("Đã xóa bài viết."); onDelete(post._id); } 
+                else { const err = await res.json(); toast.error(err.message); }
+            } catch (error) { toast.error("Lỗi khi xóa bài viết."); }
+        }
+    };
+
+    return (
+        <div className="bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800 transition-hover hover:shadow-md relative">
+            {isAI && <div className="absolute top-4 right-4 bg-primary/20 text-primary text-[10px] font-black px-2 py-1 rounded-full flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">auto_awesome</span> AI COACH</div>}
+
+            <div className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <img src={getAvatar(post.user?.profile?.full_name, post.user?.profile?.picture)} className="size-10 rounded-full object-cover" alt="User" />
+                    <div>
+                        <h4 className="text-sm font-bold dark:text-white leading-none">{post.user?.profile?.full_name || "Người dùng"}</h4>
+                        <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-1">
+                            <span>{formatDateTime(post.createdAt)}</span>
+                            {post.location && <><span className="mx-1">•</span> <span className="flex items-center"><span className="material-symbols-outlined text-[12px] mr-0.5">location_on</span> {post.location}</span></>}
+                            <span className="mx-1">•</span>
+                            <span className="text-primary font-bold">{post.tag}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                {isOwner && !isAI && (
+                    <div className="relative" ref={menuRef}>
+                        <button onClick={() => setShowMenu(!showMenu)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                            <span className="material-symbols-outlined">more_horiz</span>
+                        </button>
+                        {showMenu && (
+                            <div className="absolute right-0 mt-1 w-32 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-20 overflow-hidden py-1 animate-fade-in">
+                                <button onClick={() => { setIsEditing(true); setShowMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2"><span className="material-symbols-outlined text-[16px]">edit</span> Sửa bài</button>
+                                <button onClick={() => { handleDelete(); setShowMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"><span className="material-symbols-outlined text-[16px]">delete</span> Xóa bài</button>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+            
+            <div className="px-4 pb-3">
+                {isEditing ? (
+                    <div className="mb-3 animate-fade-in">
+                        <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="w-full min-h-[80px] p-3 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:border-primary" autoFocus />
+                        <div className="flex gap-2 justify-end mt-2">
+                            <button onClick={() => { setIsEditing(false); setEditContent(post.content); }} className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">Hủy</button>
+                            <button onClick={handleSaveEdit} disabled={isSubmittingEdit} className="px-4 py-1.5 text-xs font-bold bg-primary text-black rounded-md hover:brightness-110 transition-colors shadow-sm">{isSubmittingEdit ? 'Đang lưu...' : 'Lưu cập nhật'}</button>
+                        </div>
+                    </div>
+                ) : isChallengePost ? (
+                    <div className="bg-slate-900 p-5 rounded-2xl mt-1 mb-3 text-white relative overflow-hidden shadow-lg border border-slate-800">
+                        <div className="absolute top-0 right-0 size-32 bg-primary/20 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+                        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <p className="text-primary font-black text-[10px] uppercase mb-1.5 tracking-[0.2em]">THỬ THÁCH CỘNG ĐỒNG</p>
+                                <h3 className="text-xl font-black italic mb-2">{challengeTitle}</h3>
+                                <p className="text-xs text-slate-400">Mục tiêu: <span className="font-bold text-white">{challengeTarget}</span></p>
+                            </div>
+                            <div className="flex flex-col items-end gap-3 shrink-0">
+                                <button 
+                                    onClick={() => { if(!isUserJoined) handleJoinFromPost() }} 
+                                    disabled={isUserJoined || !associatedChallenge}
+                                    className={`px-6 py-2 rounded-full text-sm font-bold uppercase tracking-wider transition-all ${isUserJoined ? 'bg-white/10 text-white cursor-not-allowed border border-white/20' : 'bg-primary text-black hover:brightness-110 shadow-[0_0_15px_rgba(18,236,91,0.3)]'}`}
+                                >
+                                    {isUserJoined ? 'Đã tham gia' : (associatedChallenge ? 'Tham gia ngay' : 'Đang tải...')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed mb-3 whitespace-pre-wrap">
+                        {post.content?.split(/(#[\p{L}\p{N}_]+)/gu).map((part: string, i: number) => {
+                            if (part.startsWith('#')) {
+                                return (
+                                    <span key={i} className="text-primary font-bold cursor-pointer hover:underline" onClick={() => onTagClick(part)}>
+                                        {part}
+                                    </span>
+                                );
+                            }
+                            return part;
+                        })}
+                    </p>
+                )}
+
+                {post.mediaUrl && (
+                    <div className="rounded-xl overflow-hidden mt-2 bg-slate-100 dark:bg-slate-800">
+                        {post.mediaType?.includes("video") ? (
+                            <video controls className="w-full max-h-[400px] object-contain"><source src={post.mediaUrl} type={post.mediaType} />Lỗi.</video>
+                        ) : (
+                            <img src={post.mediaUrl} alt="Post media" className="w-full max-h-[400px] object-contain" />
+                        )}
+                    </div>
+                )}
+            </div>
+
+            <div className="p-4 border-t border-slate-50 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                    <div className="flex gap-6">
+                        <button onClick={() => toggleAction('like')} className={`flex items-center gap-1.5 transition-colors ${isLiked ? 'text-rose-500' : 'text-slate-500 hover:text-primary'}`}>
+                            <span className="material-symbols-outlined text-[20px]">{isLiked ? 'favorite' : 'favorite_border'}</span>
+                            <span className="text-xs font-bold">{post.likes?.length || 0}</span>
+                        </button>
+                        {!isAI && (
+                            <button onClick={() => setShowComments(!showComments)} className="flex items-center gap-1.5 text-slate-500 hover:text-primary transition-colors">
+                                <span className="material-symbols-outlined text-[20px]">chat_bubble_outline</span>
+                                <span className="text-xs font-medium">{post.comments?.length || 0}</span>
+                            </button>
+                        )}
+                        <button onClick={() => toggleAction('save')} className={`flex items-center gap-1.5 transition-colors ${isSaved ? 'text-primary' : 'text-slate-500 hover:text-primary'}`}><span className="material-symbols-outlined text-[20px]">{isSaved ? 'bookmark' : 'bookmark_border'}</span></button>
+                    </div>
+                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/community-feed?postId=${post._id}`); toast.success("Đã copy link bài viết vào Clipboard!"); }} className="text-slate-500 hover:text-primary transition-colors"><span className="material-symbols-outlined text-[20px]">share</span></button>
+                </div>
+            </div>
+
+            {(!isAI && showComments) && (
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
+                    <div className="space-y-4 mb-4 max-h-60 overflow-y-auto pr-2">
+                        {post.comments?.map((c: any, i: number) => (
+                            <div key={i} className="flex gap-3 items-start">
+                                <img src={getAvatar(c.user?.profile?.full_name, c.user?.profile?.picture)} className="size-8 rounded-full object-cover border border-white" alt="Avatar" />
+                                <div className="flex-1">
+                                    <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 inline-block w-full">
+                                        <div className="flex justify-between items-baseline mb-1">
+                                            <p className="text-[12px] font-black dark:text-white leading-none">{c.user?.profile?.full_name || "Người dùng"}</p>
+                                            <span className="text-[9px] text-slate-400 ml-2">{formatDateTime(c.createdAt || post.createdAt)}</span>
+                                        </div>
+                                        <p className="text-[13px] text-slate-600 dark:text-slate-400 leading-tight">{c.text}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex gap-2 bg-white dark:bg-slate-900 rounded-full p-1.5 border border-slate-200 dark:border-slate-800 items-center">
+                        <input value={commentText} onChange={(e) => setCommentText(e.target.value)} disabled={!token} onKeyDown={(e) => e.key === 'Enter' && submitComment()} className="flex-1 bg-transparent border-none px-4 py-1 text-sm outline-none focus:ring-0 dark:text-white" placeholder={token ? "Viết bình luận..." : "Đăng nhập để bình luận"} />
+                        <button onClick={submitComment} className="bg-primary text-black font-bold text-xs px-5 py-2 rounded-full uppercase tracking-wider hover:brightness-110">Gửi</button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ─── CÁC COMPONENT GIAO DIỆN TĨNH ───
 const DiscoverGroups = ({ user, setActiveView, setCurrentGroupId }: any) => {
     const [groups, setGroups] = useState<any[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -329,7 +580,7 @@ const DiscoverGroups = ({ user, setActiveView, setCurrentGroupId }: any) => {
     const token = localStorage.getItem("token");
 
     const fetchGroups = () => {
-        fetch("https://healthmate.onrender.com/api/community/groups")
+        fetch(`${API_URL}/api/community/groups`)
             .then(res => res.json())
             .then(data => setGroups(data))
             .catch(err => console.error(err));
@@ -339,7 +590,7 @@ const DiscoverGroups = ({ user, setActiveView, setCurrentGroupId }: any) => {
 
     const handleCreateGroup = async () => {
         if(!newGroupName.trim() || !token) return;
-        const res = await fetch("https://healthmate.onrender.com/api/community/groups", {
+        const res = await fetch(`${API_URL}/api/community/groups`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
             body: JSON.stringify({ name: newGroupName, description: newGroupDesc })
@@ -353,11 +604,24 @@ const DiscoverGroups = ({ user, setActiveView, setCurrentGroupId }: any) => {
 
     const handleJoinGroup = async (groupId: string) => {
         if(!token) return;
-        const res = await fetch(`https://healthmate.onrender.com/api/community/groups/${groupId}/join`, {
-            method: "PUT",
-            headers: { "Authorization": `Bearer ${token}` }
+        
+        setGroups(prev => prev.map(g => {
+            if (g._id === groupId) {
+                const isMem = g.members?.some((m:any) => m._id === user._id || m === user._id);
+                let newMembers = [...(g.members || [])];
+                if (isMem) newMembers = newMembers.filter((m:any) => (m._id || m) !== user._id);
+                else newMembers.push({ _id: user._id }); 
+                return { ...g, members: newMembers };
+            }
+            return g;
+        }));
+
+        const res = await fetch(`${API_URL}/api/community/groups/${groupId}/join`, {
+            method: "PUT", headers: { "Authorization": `Bearer ${token}` }
         });
+        
         if(res.ok) fetchGroups();
+        else { toast.error("Lỗi khi tham gia/rời nhóm."); fetchGroups(); }
     };
 
     const handleViewGroup = (groupId: string) => {
@@ -390,7 +654,7 @@ const DiscoverGroups = ({ user, setActiveView, setCurrentGroupId }: any) => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {groups.map(group => {
-                    const isMember = group.members?.includes(user._id);
+                    const isMember = group.members?.some((m:any) => m._id === user._id || m === user._id);
                     return (
                         <div key={group._id} className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden hover:shadow-md transition-shadow bg-white dark:bg-slate-900">
                             <div className="h-20 bg-cover bg-center" style={{backgroundImage: `url(${group.coverImage})`}}></div>
@@ -421,7 +685,7 @@ const CommunityGroupsPreview = ({ setActiveView, setCurrentGroupId }: any) => {
     const [previewGroups, setPreviewGroups] = useState<any[]>([]);
 
     useEffect(() => {
-        fetch("https://healthmate.onrender.com/api/community/groups")
+        fetch(`${API_URL}/api/community/groups`)
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data)) setPreviewGroups(data.slice(0, 3));
@@ -519,7 +783,7 @@ const ShareUpdateSection = ({ content, setContent, mediaFile, setMediaFile, loca
                 <div className="flex-1 flex flex-col relative">
                     <textarea value={content} onChange={(e) => setContent(e.target.value)} 
                         className="w-full min-h-[80px] border-none focus:ring-0 focus:outline-none bg-transparent text-slate-800 dark:text-white placeholder:text-slate-400 resize-none" 
-                        placeholder="Chia sẻ buổi tập hoặc tiến độ của bạn..." />
+                        placeholder="Thêm hashtag (#) để đưa bài viết lên Trending nhé..." />
                     
                     {(mediaFile || locationInfo) && (
                         <div className="flex flex-wrap gap-2 mt-2">
@@ -571,145 +835,6 @@ const ShareUpdateSection = ({ content, setContent, mediaFile, setMediaFile, loca
                     </div>
                 </div>
             </div>
-        </div>
-    );
-};
-
-const PostCard = ({ post, currentUserId, token, navigate, onUpdate }: any) => {
-    const [showComments, setShowComments] = useState(false);
-    const [commentText, setCommentText] = useState("");
-    
-    const isLiked = post.likes?.includes(currentUserId);
-    const isSaved = post.savedBy?.includes(currentUserId);
-    const isAI = post.isAIPost || post.tag === 'AI Coach';
-
-    const toggleAction = async (action: 'like' | 'save') => {
-        if (!token) return navigate("/login");
-        try {
-            const response = await fetch(`https://healthmate.onrender.com/api/community/posts/${post._id}/${action}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }
-            });
-            if (response.ok) {
-                const updatedPost = await response.json();
-                onUpdate(updatedPost);
-            }
-        } catch (error) { console.error(`Lỗi khi ${action}:`, error); }
-    };
-
-    const submitComment = async () => {
-        if (!token) return navigate("/login");
-        if (!commentText.trim()) return;
-        try {
-            const response = await fetch(`https://healthmate.onrender.com/api/community/posts/${post._id}/comment`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-                body: JSON.stringify({ text: commentText })
-            });
-            if (response.ok) {
-                const updatedPost = await response.json();
-                onUpdate(updatedPost);
-                setCommentText("");
-            }
-        } catch (error) { console.error("Lỗi khi comment:", error); }
-    };
-
-    const handleShare = () => {
-        const url = `${window.location.origin}/community-feed?postId=${post._id}`;
-        navigator.clipboard.writeText(url);
-        toast.success("Đã copy link bài viết vào Clipboard!");
-    };
-
-    const isVideo = post.mediaType?.includes("video");
-
-    return (
-        <div className="bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800 transition-hover hover:shadow-md relative">
-            {isAI && (
-                <div className="absolute top-4 right-4 bg-primary/20 text-primary text-[10px] font-black px-2 py-1 rounded-full flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[12px]">auto_awesome</span> AI COACH
-                </div>
-            )}
-
-            <div className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <img src={getAvatar(post.user?.profile?.full_name, post.user?.profile?.picture)} className="size-10 rounded-full object-cover" alt="User" />
-                    <div>
-                        <h4 className="text-sm font-bold dark:text-white leading-none">{post.user?.profile?.full_name || "Người dùng"}</h4>
-                        <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-1">
-                            <span>{formatDateTime(post.createdAt)}</span>
-                            {post.location && <><span className="mx-1">•</span> <span className="flex items-center"><span className="material-symbols-outlined text-[12px] mr-0.5">location_on</span> {post.location}</span></>}
-                            <span className="mx-1">•</span>
-                            <span className="text-primary font-bold">{post.tag}</span>
-                        </div>
-                    </div>
-                </div>
-                {!isAI && <button className="text-slate-400 hover:text-slate-600"><span className="material-symbols-outlined">more_horiz</span></button>}
-            </div>
-            
-            <div className="px-4 pb-3">
-                <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed mb-3 whitespace-pre-wrap">{post.content}</p>
-                {post.mediaUrl && (
-                    <div className="rounded-xl overflow-hidden mt-2 bg-slate-100 dark:bg-slate-800">
-                        {isVideo ? (
-                            <video controls className="w-full max-h-[400px] object-contain">
-                                <source src={post.mediaUrl} type={post.mediaType} />
-                                Trình duyệt không hỗ trợ.
-                            </video>
-                        ) : (
-                            <img src={post.mediaUrl} alt="Post media" className="w-full max-h-[400px] object-contain" />
-                        )}
-                    </div>
-                )}
-            </div>
-
-            <div className="p-4 border-t border-slate-50 dark:border-slate-800">
-                <div className="flex items-center justify-between">
-                    <div className="flex gap-6">
-                        <button onClick={() => toggleAction('like')} className={`flex items-center gap-1.5 transition-colors ${isLiked ? 'text-rose-500' : 'text-slate-500 hover:text-primary'}`}>
-                            <span className="material-symbols-outlined text-[20px]">{isLiked ? 'favorite' : 'favorite_border'}</span>
-                            <span className="text-xs font-bold">{post.likes?.length || 0}</span>
-                        </button>
-                        {!isAI && (
-                            <button onClick={() => setShowComments(!showComments)} className="flex items-center gap-1.5 text-slate-500 hover:text-primary transition-colors">
-                                <span className="material-symbols-outlined text-[20px]">chat_bubble_outline</span>
-                                <span className="text-xs font-medium">{post.comments?.length || 0}</span>
-                            </button>
-                        )}
-                        <button onClick={() => toggleAction('save')} className={`flex items-center gap-1.5 transition-colors ${isSaved ? 'text-primary' : 'text-slate-500 hover:text-primary'}`}>
-                            <span className="material-symbols-outlined text-[20px]">{isSaved ? 'bookmark' : 'bookmark_border'}</span>
-                        </button>
-                    </div>
-                    <button onClick={handleShare} className="text-slate-500 hover:text-primary transition-colors"><span className="material-symbols-outlined text-[20px]">share</span></button>
-                </div>
-            </div>
-
-            {(!isAI && showComments) && (
-                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
-                    <div className="space-y-4 mb-4 max-h-60 overflow-y-auto pr-2">
-                        {post.comments?.map((c: any, i: number) => (
-                            <div key={i} className="flex gap-3 items-start">
-                                <img src={getAvatar(c.user?.profile?.full_name, c.user?.profile?.picture)} className="size-8 rounded-full object-cover border border-white" alt="Avatar" />
-                                <div className="flex-1">
-                                    <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 inline-block w-full">
-                                        <div className="flex justify-between items-baseline mb-1">
-                                            <p className="text-[12px] font-black dark:text-white leading-none">{c.user?.profile?.full_name || "Người dùng"}</p>
-                                            <span className="text-[9px] text-slate-400 ml-2">{formatDateTime(c.createdAt || post.createdAt)}</span>
-                                        </div>
-                                        <p className="text-[13px] text-slate-600 dark:text-slate-400 leading-tight">{c.text}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="flex gap-2 bg-white dark:bg-slate-900 rounded-full p-1.5 border border-slate-200 dark:border-slate-800 items-center">
-                        <input value={commentText} onChange={(e) => setCommentText(e.target.value)}
-                            disabled={!token}
-                            onKeyDown={(e) => e.key === 'Enter' && submitComment()}
-                            className="flex-1 bg-transparent border-none px-4 py-1 text-sm outline-none focus:ring-0 dark:text-white" placeholder={token ? "Viết bình luận..." : "Đăng nhập để bình luận"} />
-                        <button onClick={submitComment} className="bg-primary text-black font-bold text-xs px-5 py-2 rounded-full uppercase tracking-wider hover:brightness-110">Gửi</button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
@@ -796,13 +921,23 @@ const LeaderboardView = ({ data }: any) => {
     );
 };
 
-const TrendingTags = () => (
+const TrendingTags = ({ tags, selectedHashtag, onTagClick }: any) => (
     <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
         <h3 className="font-bold mb-4 dark:text-white text-[12px] uppercase tracking-widest text-slate-900">Trending Tags</h3>
         <div className="flex flex-wrap gap-2">
-            {['#Workout', '#Healthmate', '#Running', '#Yoga', '#Gym'].map(tag => (
-                <span key={tag} className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg text-[10px] font-bold text-slate-500 hover:text-primary transition-colors cursor-pointer">{tag}</span>
-            ))}
+            {tags && tags.length > 0 ? tags.map((tag: string) => (
+                <button 
+                    key={tag} 
+                    onClick={() => onTagClick(tag === selectedHashtag ? null : tag)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${
+                        tag === selectedHashtag 
+                        ? 'bg-primary text-slate-900 border-primary shadow-sm scale-105' 
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-primary hover:border-primary/30 border-transparent'
+                    }`}
+                >
+                    {tag}
+                </button>
+            )) : <p className="text-xs text-slate-500">Chưa có hashtag nào</p>}
         </div>
     </div>
 );
