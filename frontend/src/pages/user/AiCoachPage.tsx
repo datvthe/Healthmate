@@ -141,11 +141,9 @@ const AiCoachPage = () => {
             <div className="flex gap-4">
               <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></span>
-                <span className="text-sm font-bold text-slate-900 dark:text-white">Live Sync Active</span>
+                <span className="text-sm font-bold text-slate-900 dark:text-white">Live  Active</span>
               </div>
-              <button className="px-6 py-2.5 bg-primary text-slate-900 font-bold rounded-xl shadow-sm hover:brightness-105 transition-all">
-                Export Report
-              </button>
+              
             </div>
           </header>
 
@@ -169,33 +167,7 @@ const AiCoachPage = () => {
               <div className="col-span-12 lg:col-span-8 space-y-8">
                 
                 {/* Metrics 3 cột */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                      <span className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-wider">Metabolic Rate</span>
-                      <span className="material-symbols-outlined text-primary">speed</span>
-                    </div>
-                    <div className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-                      {metrics.metabolicRate.toLocaleString()} <span className="text-base font-bold text-slate-400 ml-1">kcal</span>
-                    </div>
-                  </div>
-                  <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                      <span className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-wider">Recovery Score</span>
-                      <span className="material-symbols-outlined text-primary">battery_charging_full</span>
-                    </div>
-                    <div className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-                      {metrics.recoveryScore}<span className="text-base font-bold text-slate-400 ml-1">%</span>
-                    </div>
-                  </div>
-                  <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                      <span className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-wider">Sleep Quality</span>
-                      <span className="material-symbols-outlined text-primary">nights_stay</span>
-                    </div>
-                    <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1">{metrics.sleep}</div>
-                  </div>
-                </div>
+               
 
                 {/* Biểu đồ Impact */}
                 <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">

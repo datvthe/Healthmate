@@ -3,6 +3,7 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import ConfirmModal from '../../components/confirm-modal';
+import { API_URL } from '../../config';
 
 interface MealItem {
   _id: string;
@@ -22,7 +23,6 @@ interface Food {
   calories: number;
 }
 
-// 🔴 BỘ CÔNG CỤ XỬ LÝ NGÀY THÁNG CHUẨN LOCAL (Chống nhảy ngày)
 function parseLocalDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split('-').map(Number);
   return new Date(y, m - 1, d);
@@ -73,10 +73,8 @@ const MealPlannerPage = () => {
   const [totalCalories, setTotalCalories] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // 🔴 KIỂM TRA NGÀY TRONG QUÁ KHỨ ĐỂ VIEW-ONLY
   const isPastDate = selectedDate < todayStr;
 
-  // KIỂM TRA QUYỀN PRO
   const [isProValid, setIsProValid] = useState(false);
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -89,19 +87,17 @@ const MealPlannerPage = () => {
     }
   }, []);
 
-  // Auto Calculation States
   const [calorieGoal, setCalorieGoal] = useState(2000);
   const [userGoalType, setUserGoalType] = useState('maintain');
   const [userCurrentWeight, setUserCurrentWeight] = useState(70);
 
-  // AI States
   const [aiRecs, setAiRecs] = useState<any>({});
+  const [aiSuggestions, setAiSuggestions] = useState<Food[]>([]); // 🔴 THÊM STATE SUGGESTIONS CHO MODAL
   const [loadingAI, setLoadingAI] = useState(false);
   const [aiLimitWarning, setAiLimitWarning] = useState("");
   const [isAnalyzingLimit, setIsAnalyzingLimit] = useState(false);
   const prevCal = useRef(0);
 
-  // Modal States
   const [showFoodModal, setShowFoodModal] = useState(false);
   const [targetSlot, setTargetSlot] = useState<MealSlot>('breakfast');
   const [foods, setFoods] = useState<Food[]>([]);
@@ -119,7 +115,7 @@ const MealPlannerPage = () => {
     const autoCalculateTarget = async () => {
         let goalType = 'maintain';
         try {
-            const res = await fetch('http://localhost:8000/api/goals/my-goal', { headers: getAuthHeaders() });
+            const res = await fetch(`${API_URL}/api/goals/my-goal`, { headers: getAuthHeaders() });
             if(res.ok) {
                 const goalData = await res.json();
                 if(goalData?.goal_type) goalType = goalData.goal_type;
@@ -160,7 +156,7 @@ const MealPlannerPage = () => {
               prevCal.current = totalCalories;
               setIsAnalyzingLimit(true);
               try {
-                  const res = await fetch('http://localhost:8000/api/meal-plans/ai/analyze-calories', {
+                  const res = await fetch(`${API_URL}/api/meal-plans/ai/analyze-calories`, {
                       method: 'POST',
                       headers: getAuthHeaders(),
                       body: JSON.stringify({ totalCalories, targetCalories: calorieGoal, goalType: userGoalType, currentWeight: userCurrentWeight })
@@ -174,7 +170,6 @@ const MealPlannerPage = () => {
               prevCal.current = totalCalories;
           }
       };
-
       const timeoutId = setTimeout(analyzeLimit, 1000); 
       return () => clearTimeout(timeoutId);
   }, [totalCalories, calorieGoal, isProValid]);
@@ -182,7 +177,7 @@ const MealPlannerPage = () => {
   const fetchMealPlan = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:8000/api/meal-plans/${selectedDate}`, { headers: getAuthHeaders() });
+      const res = await fetch(`${API_URL}/api/meal-plans/${selectedDate}`, { headers: getAuthHeaders() });
       const data = await res.json();
       setItems(data.items || []);
       setTotalCalories(data.total_calories || 0);
@@ -191,7 +186,7 @@ const MealPlannerPage = () => {
 
   const fetchFoods = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/foods');
+      const res = await fetch(`${API_URL}/api/foods`);
       const data = await res.json();
       setFoods(data);
       const init: Record<string, number> = {};
@@ -200,6 +195,7 @@ const MealPlannerPage = () => {
     } catch (err) { console.error(err); }
   };
 
+  // 🔴 ĐÃ FIX FETCH AI RECS: CHUYỂN SANG POST VÀ TRUYỀN NGÀY VÀO BODY
   const fetchAiRecs = async (forceGenerate = false) => {
     if (!isProValid) return; 
     
@@ -207,24 +203,37 @@ const MealPlannerPage = () => {
         return toast.error("Không thể tạo thực đơn cho ngày quá khứ!");
     }
 
-    const cacheKey = `hm_ai_meal_rec_${todayStr}`;
+    const cacheKey = `hm_ai_meal_rec_${selectedDate}`;
     const cachedData = localStorage.getItem(cacheKey);
 
     if (cachedData && !forceGenerate) {
-        setAiRecs(JSON.parse(cachedData));
+        const parsed = JSON.parse(cachedData);
+        setAiRecs(parsed);
+        setAiSuggestions(parsed.suggestions || []);
         return;
     }
 
     try {
       setLoadingAI(true);
       if (forceGenerate) toast.loading("Đầu bếp AI đang lên thực đơn...", { id: 'ai' });
-      const res = await fetch('http://localhost:8000/api/meal-plans/ai/recommend', { headers: getAuthHeaders() });
+      
+      const res = await fetch(`${API_URL}/api/meal-plans/ai/recommend`, { 
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ date: selectedDate })
+      });
+      
       const data = await res.json();
-      setAiRecs(data || {});
-      localStorage.setItem(cacheKey, JSON.stringify(data));
-      if (forceGenerate) toast.success("Thực đơn mới đã sẵn sàng!", { id: 'ai' });
+      if (res.ok) {
+          setAiRecs(data || {});
+          setAiSuggestions(data?.suggestions || []);
+          localStorage.setItem(cacheKey, JSON.stringify(data));
+          if (forceGenerate) toast.success("Thực đơn mới đã sẵn sàng!", { id: 'ai' });
+      } else {
+          if (forceGenerate) toast.error(data.message || "Lỗi tạo thực đơn", { id: 'ai' });
+      }
     } catch (err) { 
-        if (forceGenerate) toast.error("Lỗi tạo thực đơn", { id: 'ai' });
+        if (forceGenerate) toast.error("Lỗi kết nối AI", { id: 'ai' });
     } finally { 
         setLoadingAI(false); 
     }
@@ -237,7 +246,6 @@ const MealPlannerPage = () => {
     setShowFoodModal(true);
   };
 
-  // 🔴 FIX LỖI THÊM MÓN ĂN AI DO SAI ID
   const addFoodToMealPlan = async (item: any, forceSlot?: MealSlot) => {
     if (isPastDate) return toast.error("Không thể thêm vào ngày quá khứ");
 
@@ -251,11 +259,10 @@ const MealPlannerPage = () => {
           food_id: foodId, 
           name: item.name,
           quantity: item.quantity || 100, 
-          calories: item.calories,
           slot: forceSlot || targetSlot
       };
 
-      const res = await fetch(`http://localhost:8000/api/meal-plans/${selectedDate}/items`, {
+      const res = await fetch(`${API_URL}/api/meal-plans/${selectedDate}/items`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload), 
@@ -274,7 +281,7 @@ const MealPlannerPage = () => {
     if (isPastDate) return;
     if (editQuantity <= 0 || editQuantity > 5000) { toast.error('Số lượng không hợp lệ'); return; }
     try {
-      const res = await fetch(`http://localhost:8000/api/meal-plans/${selectedDate}/items/${itemId}`, {
+      const res = await fetch(`${API_URL}/api/meal-plans/${selectedDate}/items/${itemId}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ quantity: editQuantity }),
@@ -287,7 +294,7 @@ const MealPlannerPage = () => {
     if (isPastDate) return;
     try {
       const res = await fetch(
-        `http://localhost:8000/api/meal-plans/${selectedDate}/items/${deleteModal.itemId}`,
+        `${API_URL}/api/meal-plans/${selectedDate}/items/${deleteModal.itemId}`,
         { method: 'DELETE', headers: getAuthHeaders() },
       );
       if (res.ok) { toast.success('Đã xóa món ăn'); fetchMealPlan(); }
@@ -299,14 +306,13 @@ const MealPlannerPage = () => {
   const calorieRemain = Math.max(0, calorieGoal - totalCalories);
   const calorieBarColor = caloriePercent >= 100 ? 'bg-red-500' : caloriePercent >= 75 ? 'bg-amber-400' : 'bg-primary';
   const grouped = groupBySlot(items);
-  const categories = [...new Set(foods.map(f => f.category))].filter(Boolean);
   const filteredFoods = foods.filter(f => f.name.toLowerCase().includes(foodSearch.toLowerCase()) && (!foodCategory || f.category === foodCategory));
 
   const estCarb    = Math.round((calorieGoal * 0.50) / 4);
   const estProtein = Math.round((calorieGoal * 0.25) / 4);
   const estFat     = Math.round((calorieGoal * 0.25) / 9);
 
-  const hasAiLoadedToday = !!localStorage.getItem(`hm_ai_meal_rec_${todayStr}`);
+  const hasAiLoadedToday = !!localStorage.getItem(`hm_ai_meal_rec_${selectedDate}`);
 
   return (
     <Layout>
@@ -548,9 +554,32 @@ const MealPlannerPage = () => {
                   <input type="text" placeholder="Tìm món ăn..." value={foodSearch} onChange={e => setFoodSearch(e.target.value)} className="w-full pl-12 pr-4 py-3 text-sm font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all" autoFocus />
               </div>
             </div>
-            <div className="overflow-y-auto flex-1 p-3 scrollbar-hide">
-              {filteredFoods.map(food => (
-                <div key={food._id} className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl transition-colors border border-transparent hover:border-slate-100 dark:hover:border-slate-700 mb-1">
+            <div className="overflow-y-auto flex-1 p-3 scrollbar-hide bg-slate-50/50 dark:bg-slate-900/50">
+              
+              {/* Hiển thị AI Suggestions nếu có */}
+              {aiSuggestions.length > 0 && foodSearch === '' && (
+                  <div className="mb-6">
+                      <p className="text-xs font-black text-purple-500 uppercase tracking-widest mb-3 flex items-center gap-1 px-2"><span className="material-symbols-outlined text-[14px]">auto_awesome</span> Gợi ý từ AI</p>
+                      {aiSuggestions.map(food => (
+                        <div key={food._id || food.id} className="flex justify-between items-center bg-purple-50 dark:bg-purple-900/10 p-3 rounded-xl border border-purple-100 dark:border-purple-800/30 mb-2 shadow-sm">
+                          <div>
+                            <p className="font-bold text-sm text-slate-900 dark:text-white mb-0.5">{food.name}</p>
+                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">{food.calories} kcal/100g</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <input type="number" value={quantities[food._id || food.id || ''] ?? 100} onChange={e => setQuantities(q => ({ ...q, [food._id || food.id || '']: parseInt(e.target.value) || 0 }))} className="w-16 px-2 py-1.5 text-sm font-bold text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-purple-400" />
+                            <span className="text-[10px] font-bold text-slate-400">g</span>
+                            <button onClick={() => addFoodToMealPlan({ ...food, quantity: quantities[food._id || food.id || ''] ?? 100, calories: Math.round((food.calories * (quantities[food._id || food.id || ''] ?? 100)) / 100) }, targetSlot)} className="ml-2 px-4 py-2 bg-purple-500 text-white text-xs font-bold rounded-xl hover:brightness-110 shadow-sm transition-all">Thêm</button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+              )}
+
+              {loadingFoods ? (
+                  <p className="text-center text-slate-400 py-10 animate-pulse">Đang tải...</p>
+              ) : filteredFoods.map(food => (
+                <div key={food._id} className="flex items-center justify-between p-4 hover:bg-white dark:hover:bg-slate-800/50 rounded-2xl transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700 mb-1">
                   <div>
                     <p className="font-bold text-sm text-slate-900 dark:text-white mb-1">{food.name}</p>
                     <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">{food.calories} kcal/100g {food.category && `• ${food.category}`}</p>
