@@ -218,7 +218,7 @@ const FoodsSection: React.FC<FoodsSectionProps> = ({ onBack }) => {
 
       <ConfirmModal
         isOpen={deleteModal.isOpen}
-        title="Xóa món ăn"
+        title="Delete food"
         message={`Bạn có chắc muốn xóa "${deleteModal.foodName}"? Hành động này không thể hoàn tác.`}
         confirmText="Xóa"
         onConfirm={handleDeleteConfirm}

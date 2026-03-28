@@ -239,9 +239,45 @@ router.get('/groups/:id', async (req, res) => {
 router.post('/groups', protect, async (req, res) => {
   try {
       if(!req.body.name || req.body.name.trim().length < 3) return res.status(400).json({message: "Tên nhóm phải từ 3 ký tự trở lên."});
-      res.status(201).json(await Group.create({ name: req.body.name, description: req.body.description, admin: req.user.id, members: [req.user.id] }));
+      const payload = {
+        name: req.body.name,
+        description: req.body.description,
+        admin: req.user.id,
+        members: [req.user.id],
+      };
+      if (req.body.coverImage && typeof req.body.coverImage === 'string') {
+        payload.coverImage = req.body.coverImage.trim();
+      }
+      res.status(201).json(await Group.create(payload));
   } catch (err) { res.status(500).json(err); }
 });
+
+router.put('/groups/:id/cover', protect, upload.single('coverImage'), async (req, res) => {
+  try {
+    const group = await Group.findById(req.params.id);
+    if (!group) return res.status(404).json({ message: "Không tìm thấy nhóm." });
+
+    const isOwner = group.admin?.toString() === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ message: "Bạn không có quyền sửa ảnh bìa nhóm này." });
+    }
+
+    const nextCover = req.file?.path || req.body?.coverImage;
+    if (!nextCover || typeof nextCover !== 'string') {
+      return res.status(400).json({ message: "Thiếu ảnh bìa hợp lệ." });
+    }
+
+    group.coverImage = nextCover.trim();
+    await group.save();
+
+    const updatedGroup = await Group.findById(group._id).populate('admin members', 'profile.full_name profile.picture');
+    res.json(updatedGroup);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.put('/groups/:id/join', protect, async (req, res) => {
   try {
     const group = await Group.findById(req.params.id);

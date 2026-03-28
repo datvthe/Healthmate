@@ -46,11 +46,11 @@ const PostManagement = () => {
       <div className="max-w-6xl mx-auto w-full pb-10">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
             <div>
-                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-1">Quản lý Bài viết</h1>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Kiểm duyệt và quản lý luồng thông tin trên Community Feed.</p>
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-1">Post Management</h1>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Moderate and manage content flow in the Community Feed.</p>
             </div>
             <button onClick={fetchPosts} className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
-                <span className="material-symbols-outlined text-[18px]">refresh</span> Làm mới
+                <span className="material-symbols-outlined text-[18px]">refresh</span> Refresh
             </button>
         </div>
 
@@ -59,17 +59,17 @@ const PostManagement = () => {
                 <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-black text-slate-500 dark:text-slate-400">
                         <tr>
-                            <th className="p-4 w-1/4">Tác giả</th>
-                            <th className="p-4 w-1/2">Nội dung</th>
-                            <th className="p-4">Tương tác</th>
-                            <th className="p-4 text-right">Thao tác</th>
+                            <th className="p-4 w-1/4">Author</th>
+                            <th className="p-4 w-1/2">Content</th>
+                            <th className="p-4">Engagement</th>
+                            <th className="p-4 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 text-sm">
                         {loading ? (
-                            <tr><td colSpan={4} className="p-10 text-center text-slate-500 font-medium animate-pulse">Đang tải dữ liệu...</td></tr>
+                            <tr><td colSpan={4} className="p-10 text-center text-slate-500 font-medium animate-pulse">Loading data...</td></tr>
                         ) : posts.length === 0 ? (
-                            <tr><td colSpan={4} className="p-10 text-center text-slate-500 font-medium">Chưa có bài viết nào.</td></tr>
+                            <tr><td colSpan={4} className="p-10 text-center text-slate-500 font-medium">No posts yet.</td></tr>
                         ) : (
                             posts.map(p => (
                                 <tr key={p._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">

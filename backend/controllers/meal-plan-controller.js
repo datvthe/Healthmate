@@ -3,6 +3,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const MealPlan = require('../models/MealPlan');
 const Food = require('../models/Food');
 const User = require('../models/User');
+const Goal = require('../models/goalModel');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -120,6 +121,61 @@ const checkIsPro = (user) => {
     return user.subscription.plan === 'pro' && new Date(user.subscription.endDate) > new Date();
 };
 
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const getAgeFromBirthDate = (birthDate) => {
+  if (!birthDate) return 25;
+  const dob = new Date(birthDate);
+  if (Number.isNaN(dob.getTime())) return 25;
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const monthDiff = now.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dob.getDate())) age--;
+  return clamp(age, 15, 80);
+};
+
+const getBmiCategory = (bmi) => {
+  if (bmi < 18.5) return 'underweight';
+  if (bmi < 25) return 'normal';
+  if (bmi < 30) return 'overweight';
+  return 'obese';
+};
+
+const calculateCalorieTargetFromBmiAndGoal = ({ weight, height, gender, age, goalType }) => {
+  const safeWeight = clamp(Number(weight) || 70, 20, 300);
+  const safeHeight = clamp(Number(height) || 170, 120, 230);
+  const safeAge = clamp(Number(age) || 25, 15, 80);
+  const safeGender = ['male', 'female', 'other'].includes(gender) ? gender : 'male';
+
+  const heightM = safeHeight / 100;
+  const bmi = safeWeight / (heightM * heightM);
+  const bmiCategory = getBmiCategory(bmi);
+
+  const bmrBase = 10 * safeWeight + 6.25 * safeHeight - 5 * safeAge;
+  const bmr = safeGender === 'female' ? bmrBase - 161 : bmrBase + 5;
+  const tdee = bmr * 1.45;
+
+  let goalDelta = 0;
+  if (goalType === 'fat_loss') goalDelta = -500;
+  else if (goalType === 'muscle_gain') goalDelta = 300;
+  else if (goalType === 'endurance') goalDelta = 150;
+
+  let bmiDelta = 0;
+  if (bmiCategory === 'underweight') bmiDelta = 200;
+  if (bmiCategory === 'overweight') bmiDelta = goalType === 'fat_loss' ? -200 : -100;
+  if (bmiCategory === 'obese') bmiDelta = goalType === 'fat_loss' ? -300 : -200;
+
+  const lowerBound = safeGender === 'female' ? 1200 : 1400;
+  const upperBound = 3800;
+  const targetCalories = Math.round(clamp(tdee + goalDelta + bmiDelta, lowerBound, upperBound));
+
+  return {
+    bmi: Number(bmi.toFixed(1)),
+    bmiCategory,
+    targetCalories,
+  };
+};
+
 // 🔴 API ĐẦU BẾP AI (ĐÃ FIX PROMPT VÀ LỖI JSON)
 const generateAIPlan = async (req, res) => {
     try {
@@ -129,21 +185,51 @@ const generateAIPlan = async (req, res) => {
         const user = await User.findById(req.user.id);
         if (!checkIsPro(user)) return res.status(403).json({ message: "Tính năng này chỉ dành cho gói Pro." });
 
+        const activeGoal = await Goal.findOne({ user_id: user._id, status: 'active' }).sort({ updatedAt: -1 }).lean();
+        const goalType = activeGoal?.goal_type || user.profile?.goal || 'maintain';
+        const weight = user.profile?.weight_kg || 70;
+        const height = user.profile?.height_cm || 170;
+        const gender = user.profile?.gender || 'male';
+        const age = getAgeFromBirthDate(user.profile?.birth_date);
+        const { bmi, bmiCategory, targetCalories } = calculateCalorieTargetFromBmiAndGoal({
+          weight,
+          height,
+          gender,
+          age,
+          goalType
+        });
+
         const foods = await Food.find().limit(60);
         if (foods.length === 0) return res.status(400).json({ message: "Thư viện món ăn rỗng." });
 
-        const prompt = `Bạn là chuyên gia dinh dưỡng. Hãy tạo thực đơn 1 ngày (khoảng 2000 kcal).
+        const prompt = `Bạn là chuyên gia dinh dưỡng cá nhân hóa. Hãy tạo thực đơn 1 ngày bám sát calories mục tiêu.
+        THÔNG TIN NGƯỜI DÙNG:
+        - Goal: ${goalType}
+        - Weight: ${weight}kg
+        - Height: ${height}cm
+        - BMI: ${bmi} (${bmiCategory})
+        - Target calories/day: ${targetCalories} kcal
+
         BẮT BUỘC CHỈ CHỌN các món ăn trong danh sách sau (giữ đúng _id và name):
         ${JSON.stringify(foods.map(f => ({_id: f._id, name: f.name, cal: f.calories})))}
 
         Trả về ĐÚNG định dạng JSON object, tuyệt đối không có \`\`\`json ở đầu/cuối:
         {
+          "meta": {"target_calories": ${targetCalories}, "bmi": ${bmi}, "bmi_category": "${bmiCategory}", "goal_type": "${goalType}"},
           "suggestions": [{"_id":"...","name":"...","calories":...,"quantity":100}],
           "breakfast": [{"_id":"...","name":"...","calories":...,"quantity":100,"reason":"..."}],
           "lunch": [{"_id":"...","name":"...","calories":...,"quantity":100,"reason":"..."}],
           "dinner": [{"_id":"...","name":"...","calories":...,"quantity":100,"reason":"..."}],
           "snack": [{"_id":"...","name":"...","calories":...,"quantity":100,"reason":"..."}]
-        }`;
+        }
+
+        RÀNG BUỘC:
+        - Tổng calories cả ngày nên gần ${targetCalories} kcal (dao động ±120 kcal).
+        - Goal fat_loss: ưu tiên món no lâu, đạm cao, giảm món quá nhiều calo.
+        - Goal muscle_gain: ưu tiên đủ đạm, carb chất lượng và đủ năng lượng.
+        - Goal maintain/endurance: cân bằng, dễ duy trì.
+        - Lý do (reason) ngắn gọn, cụ thể theo BMI + goal.
+        `;
 
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const resultAI = await model.generateContent(prompt);
@@ -164,6 +250,15 @@ const generateAIPlan = async (req, res) => {
                 throw new Error("AI trả về sai định dạng JSON.");
             }
         }
+        if (!suggestions || typeof suggestions !== 'object' || Array.isArray(suggestions)) {
+          suggestions = {};
+        }
+        suggestions.meta = {
+          target_calories: Number(suggestions?.meta?.target_calories) || targetCalories,
+          bmi: Number(suggestions?.meta?.bmi) || bmi,
+          bmi_category: suggestions?.meta?.bmi_category || bmiCategory,
+          goal_type: suggestions?.meta?.goal_type || goalType,
+        };
         res.json(suggestions);
     } catch (error) {
         res.status(500).json({ message: "Lỗi tạo AI menu", error: error.message });

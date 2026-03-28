@@ -23,6 +23,11 @@ const workoutSchema = new mongoose.Schema(
       enum: ["beginner", "intermediate", "advanced"],
       default: "beginner",
     },
+    access_tier: {
+      type: String,
+      enum: ["free", "premium"],
+      default: "free",
+    },
     calories_burned: {
       // static estimate
       type: Number,
@@ -39,6 +44,28 @@ const workoutSchema = new mongoose.Schema(
         video_url: String,
         duration_sec: Number,
         order: Number,
+      },
+    ],
+    program_days: [
+      // multi-day workout roadmap: Day 1, Day 2, Day 3...
+      {
+        day_number: {
+          type: Number,
+          min: 1,
+          required: true,
+        },
+        day_title: {
+          type: String,
+          default: "",
+        },
+        exercises: [
+          {
+            title: String,
+            video_url: String,
+            duration_sec: Number,
+            order: Number,
+          },
+        ],
       },
     ],
     created_by: {

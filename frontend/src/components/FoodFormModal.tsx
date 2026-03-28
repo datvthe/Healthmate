@@ -371,7 +371,7 @@ const FoodFormModal = ({ isOpen, foodId, onClose, onSuccess }: FoodFormModalProp
 
                 {/* Thông tin dinh dưỡng */}
                 <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-                  <h3 className="font-medium mb-4">Thông tin dinh dưỡng (per 100g)</h3>
+                  <h3 className="font-medium mb-4">Nutrition Information (per 100g)</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm text-slate-500 mb-1">Calo (kcal)</label>
@@ -441,3 +441,4 @@ const FoodFormModal = ({ isOpen, foodId, onClose, onSuccess }: FoodFormModalProp
 };
 
 export default FoodFormModal;
+

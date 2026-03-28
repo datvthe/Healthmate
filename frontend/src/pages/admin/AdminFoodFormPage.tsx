@@ -66,7 +66,7 @@ const AdminFoodFormPage = () => {
   return (
     <Layout>
       <div className="max-w-xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Thêm <span className="text-primary">món ăn mới</span></h1>
+        <h1 className="text-3xl font-bold mb-6">Add <span className="text-primary">New Food</span></h1>
 
         {error && <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg">{error}</div>}
 
@@ -85,7 +85,7 @@ const AdminFoodFormPage = () => {
             </div>
 
             <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-              <h3 className="font-medium mb-4">Thông tin dinh dưỡng (per 100g)</h3>
+              <h3 className="font-medium mb-4">Nutrition Information (per 100g)</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-slate-500 mb-1">Calo (kcal)</label>

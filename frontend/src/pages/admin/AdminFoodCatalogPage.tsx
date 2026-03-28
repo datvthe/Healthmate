@@ -82,7 +82,7 @@ const AdminFoodCatalogPage = () => {
   return (
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Danh sách món ăn</h1>
+        <h1 className="text-2xl font-bold">Food List</h1>
         <button
           onClick={openCreateModal}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-slate-900 rounded-lg font-medium hover:bg-primary/90 transition text-sm"
@@ -201,7 +201,7 @@ const AdminFoodCatalogPage = () => {
 
       <ConfirmModal
         isOpen={deleteModal.isOpen}
-        title="Xóa món ăn"
+        title="Delete food"
         message={`Bạn có chắc muốn xóa "${deleteModal.foodName}"? Hành động này không thể hoàn tác.`}
         confirmText="Xóa"
         onConfirm={handleDeleteConfirm}
@@ -219,3 +219,4 @@ const AdminFoodCatalogPage = () => {
 };
 
 export default AdminFoodCatalogPage;
+

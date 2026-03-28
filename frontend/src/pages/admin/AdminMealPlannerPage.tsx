@@ -2,11 +2,23 @@ import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import AdminLayout from '../../components/AdminLayout';
 import ConfirmModal from '../../components/confirm-modal';
+import {
+  calculateCalorieTargetFromProfile,
+  getAgeFromBirthDate,
+  normalizeGoalType,
+} from '../../utils/nutritionTargets';
 
 interface User {
   _id: string;
   email: string;
-  profile: { full_name: string };
+  profile: {
+    full_name: string;
+    goal?: string;
+    weight_kg?: number;
+    height_cm?: number;
+    gender?: string;
+    birth_date?: string;
+  };
 }
 
 interface MealItem {
@@ -25,10 +37,10 @@ interface Food {
 }
 
 const MEAL_SLOTS = [
-  { key: 'breakfast', label: 'Bữa sáng', time: '06:00–09:00', color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800', dot: 'bg-amber-400', badge: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' },
-  { key: 'lunch',     label: 'Bữa trưa', time: '11:00–13:00', color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',   dot: 'bg-blue-400',  badge: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
-  { key: 'dinner',    label: 'Bữa tối',  time: '17:00–20:00', color: 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800', dot: 'bg-violet-400', badge: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300' },
-  { key: 'snack',     label: 'Bữa phụ',  time: 'Khác',        color: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',  dot: 'bg-green-400', badge: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
+  { key: 'breakfast', label: 'Breakfast', time: '06:00–09:00', color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800', dot: 'bg-amber-400', badge: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' },
+  { key: 'lunch',     label: 'Lunch', time: '11:00–13:00', color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',   dot: 'bg-blue-400',  badge: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
+  { key: 'dinner',    label: 'Dinner',  time: '17:00–20:00', color: 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800', dot: 'bg-violet-400', badge: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300' },
+  { key: 'snack',     label: 'Snack',  time: 'Other',        color: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',  dot: 'bg-green-400', badge: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
 ] as const;
 type MealSlot = typeof MEAL_SLOTS[number]['key'];
 
@@ -54,7 +66,6 @@ function groupBySlot(items: MealItem[]): Record<MealSlot, MealItem[]> {
   return g;
 }
 
-const CALORIE_GOAL = 2000;
 const DAY_ABBR = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
 const AdminMealPlannerPage = () => {
@@ -193,23 +204,35 @@ const AdminMealPlannerPage = () => {
   };
 
   // Derived
+  const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const adminProfile = localUser?.profile || {};
   const selectedUser = targetUserId ? users.find(u => u._id === targetUserId) : null;
   const targetName = selectedUser ? selectedUser.profile.full_name : 'Admin';
   const targetEmail = selectedUser?.email ?? '';
-  const caloriePercent = Math.min(100, Math.round((totalCalories / CALORIE_GOAL) * 100));
-  const calorieRemain = Math.max(0, CALORIE_GOAL - totalCalories);
+  const targetProfile = selectedUser?.profile || adminProfile;
+  const goalType = normalizeGoalType(targetProfile?.goal);
+  const calorieGoal = calculateCalorieTargetFromProfile({
+    weight: Number(targetProfile?.weight_kg) || 70,
+    height: Number(targetProfile?.height_cm) || 170,
+    gender: targetProfile?.gender || 'male',
+    age: getAgeFromBirthDate(targetProfile?.birth_date, 25),
+    goalType,
+  }).targetCalories;
+
+  const caloriePercent = Math.min(100, Math.round((totalCalories / calorieGoal) * 100));
+  const calorieRemain = Math.max(0, calorieGoal - totalCalories);
   const calorieBarColor = caloriePercent >= 100 ? 'bg-red-500' : caloriePercent >= 75 ? 'bg-amber-400' : 'bg-primary';
 
   const grouped = groupBySlot(items);
 
   // Macro estimate (50% carb, 25% protein, 25% fat)
-  const estCarb    = Math.round((totalCalories * 0.50) / 4);
-  const estProtein = Math.round((totalCalories * 0.25) / 4);
-  const estFat     = Math.round((totalCalories * 0.25) / 9);
+  const estCarb    = Math.round((calorieGoal * 0.50) / 4);
+  const estProtein = Math.round((calorieGoal * 0.25) / 4);
+  const estFat     = Math.round((calorieGoal * 0.25) / 9);
 
   // Weekly bar chart
   const weekDates = buildWeekDates(selectedDate);
-  const weekMax = Math.max(...weekDates.map(d => weeklyData[d] || 0), CALORIE_GOAL);
+  const weekMax = Math.max(...weekDates.map(d => weeklyData[d] || 0), calorieGoal);
 
   const categories = [...new Set(foods.map(f => f.category))].filter(Boolean);
   const filteredFoods = foods.filter(f => {
@@ -225,7 +248,7 @@ const AdminMealPlannerPage = () => {
         {/* ── Header ─────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Quản lý thực đơn</h1>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Meal Plan Management</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
               Lập kế hoạch dinh dưỡng theo ngày cho từng người dùng
             </p>
@@ -470,7 +493,7 @@ const AdminMealPlannerPage = () => {
                   style={{ width: `${caloriePercent}%` }}
                 />
               </div>
-              <p className="text-center text-xs text-slate-400 mt-1.5">Mục tiêu: {CALORIE_GOAL.toLocaleString()} kcal</p>
+              <p className="text-center text-xs text-slate-400 mt-1.5">Mục tiêu: {calorieGoal.toLocaleString()} kcal</p>
             </div>
 
             {/* Macro estimate */}
@@ -567,7 +590,7 @@ const AdminMealPlannerPage = () => {
 
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
               <div>
-                <h3 className="font-bold text-slate-900 dark:text-white">Chọn món ăn</h3>
+                <h3 className="font-bold text-slate-900 dark:text-white">Select Food</h3>
                 <p className="text-xs text-slate-400 mt-0.5">cho {targetName}</p>
               </div>
               <button
@@ -618,8 +641,8 @@ const AdminMealPlannerPage = () => {
                 <table className="w-full text-sm">
                   <thead className="sticky top-0">
                     <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
-                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Tên món</th>
-                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Loại</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Food name</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
                       <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Calo/100g</th>
                       <th className="text-center px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Gram</th>
                       <th className="px-3 py-2.5 w-16" />
@@ -662,7 +685,7 @@ const AdminMealPlannerPage = () => {
 
       <ConfirmModal
         isOpen={deleteModal.isOpen}
-        title="Xóa món ăn"
+        title="Delete food"
         message={`Xóa "${deleteModal.itemName}" khỏi thực đơn?`}
         confirmText="Xóa"
         onConfirm={handleRemoveConfirm}
@@ -673,3 +696,4 @@ const AdminMealPlannerPage = () => {
 };
 
 export default AdminMealPlannerPage;
+

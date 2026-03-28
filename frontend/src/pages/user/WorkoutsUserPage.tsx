@@ -58,7 +58,7 @@ const RecommendCard = ({ image, badge, name, tags, workout, onAdd }: RecommendCa
         onClick={() => onAdd(workout)}
         className="mt-2 w-full py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-lg hover:opacity-90"
       >
-        Lên Lịch Tập
+        Add to Schedule
       </button>
     </div>
   </div>
@@ -85,13 +85,28 @@ interface Workout {
   difficulty: string;
   duration: number;
   estimatedCalories: number;
+  calories_burned?: number;
+  access_tier?: "free" | "premium";
+  is_locked?: boolean;
   video_url?: string;
   cover_image?: string;
   title: string;
+  category_id?: { _id?: string; name?: string } | string;
   exercises?: {
     title: string;
     video_url?: string;
     duration_sec?: number;
+    order?: number;
+  }[];
+  program_days?: {
+    day_number?: number;
+    day_title?: string;
+    exercises?: {
+      title: string;
+      video_url?: string;
+      duration_sec?: number;
+      order?: number;
+    }[];
   }[];
 }
 
@@ -105,12 +120,38 @@ interface TodaysExercise {
   duration: number;
   calories: number;
   video_url?: string;
+  plan_day?: number;
+  access_tier?: "free" | "premium";
   exercises?: {
     title: string
     video_url?: string
     duration_sec?: number
   }[]
 }
+
+type NormalizedProgramDay = {
+  day_number: number;
+  day_title: string;
+  exercises: {
+    title: string;
+    video_url?: string;
+    duration_sec?: number;
+    order?: number;
+  }[];
+};
+
+const normalizeProgramDays = (workout?: Workout | null): NormalizedProgramDay[] => {
+  if (!workout) return [];
+  if (!Array.isArray(workout.program_days) || workout.program_days.length === 0) return [];
+
+  return [...workout.program_days]
+    .map((day, index) => ({
+      day_number: day.day_number && day.day_number > 0 ? day.day_number : index + 1,
+      day_title: day.day_title || `Day ${index + 1}`,
+      exercises: Array.isArray(day.exercises) ? day.exercises : [],
+    }))
+    .sort((a, b) => a.day_number - b.day_number);
+};
 
 const getBmiRange = (bmi: number) => {
     if (bmi < 18.5) return 'underweight';
@@ -141,10 +182,23 @@ const getLocalDateString = (dateObj: Date) => {
 
 const getTodayStr = () => getLocalDateString(new Date());
 
+const hasPremiumAccessFromSubscription = (subscription: any) => {
+  if (!subscription) return false;
+  if (subscription.hasPremiumAccess === true) return true;
+
+  const plan = subscription.plan;
+  const endDate = subscription.endDate ? new Date(subscription.endDate) : null;
+  const isActive = Boolean(endDate && endDate > new Date());
+
+  return (plan === "trial" || plan === "pro") && isActive;
+};
+
 const WorkoutsUserPage = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const logsPerPage = 5;
+  const [libraryPage, setLibraryPage] = useState(1);
+  const libraryItemsPerPage = 9;
   const [library, setLibrary] = useState<Workout[]>([]);
   const [myPlan, setMyPlan] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
@@ -155,9 +209,14 @@ const WorkoutsUserPage = () => {
   
   const [aiRecommendations, setAiRecommendations] = useState<Workout[]>([]);
   const [goal, setGoal] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<any>(() => {
+    const userStr = localStorage.getItem("user");
+    return userStr ? JSON.parse(userStr) : null;
+  });
 
   const [previewWorkoutId, setPreviewWorkoutId] = useState<string | null>(null);
   const [previewWorkout, setPreviewWorkout] = useState<Workout | null>(null);
+  const [previewFocusDay, setPreviewFocusDay] = useState<number | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
@@ -181,9 +240,26 @@ const WorkoutsUserPage = () => {
   const [exercisesByDate, setExercisesByDate] = useState<Record<string, TodaysExercise[]>>({});
   const [eventsByDate, setEventsByDate] = useState<Record<string, { title: string; time: string; image?: string }[]>>({});
   const todaysExercises = exercisesByDate[selectedDate] || [];
+  const hasPremiumAccess = hasPremiumAccessFromSubscription(currentUser?.subscription);
 
-  // 🔴 KIỂM TRA NGÀY TRONG QUÁ KHỨ ĐỂ VIEW-ONLY
+  // Chi cho phep tap khi selectedDate la ngay hom nay.
   const isPastDate = selectedDate < todayStrLocal;
+  const isFutureDate = selectedDate > todayStrLocal;
+  const isReadOnlyDate = isPastDate || isFutureDate;
+
+  useEffect(() => {
+    const syncUser = () => {
+      const userStr = localStorage.getItem("user");
+      setCurrentUser(userStr ? JSON.parse(userStr) : null);
+    };
+
+    window.addEventListener("user-updated", syncUser);
+    window.addEventListener("storage", syncUser);
+    return () => {
+      window.removeEventListener("user-updated", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
+  }, []);
 
   useEffect(() => {
     if (library.length === 0) return;
@@ -272,7 +348,26 @@ const WorkoutsUserPage = () => {
     } catch (err) {}
   };
 
+  const syncUserFromServer = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const res = await fetch("https://healthmate-y9vt.onrender.com/api/users/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) return;
+      const serverUser = await res.json();
+      const existing = JSON.parse(localStorage.getItem("user") || "{}");
+      const merged = { ...existing, ...serverUser };
+      localStorage.setItem("user", JSON.stringify(merged));
+      setCurrentUser(merged);
+    } catch (error) {}
+  };
+
   useEffect(() => {
+    syncUserFromServer();
     loadGoal();
     loadAll();
   }, []);
@@ -283,7 +378,7 @@ const WorkoutsUserPage = () => {
       setLibrary(data);
       setDbError(null);
     } catch (err: any) {
-      setDbError("Không thể tải danh sách bài tập.");
+      setDbError("Unable to load workout list.");
       setLibrary([]);
     }
   };
@@ -304,14 +399,21 @@ const WorkoutsUserPage = () => {
       const formatted: Record<string, TodaysExercise[]> = {};
 
       Object.keys(data).forEach(date => {
+        const toWorkoutId = (workoutId: any) =>
+          typeof workoutId === "string" ? workoutId : workoutId?._id || "";
+
         formatted[date] = data[date].map((ex: any, index: number) => ({
-          id: ex.workout_id || `${date}-${index}`, 
+          id: ex.id || toWorkoutId(ex.workout_id) || `${date}-${index}`,
+          workout_id: toWorkoutId(ex.workout_id) || undefined,
           name: ex.name,
           startTime: ex.startTime,
           endTime: ex.endTime,
           image: ex.image,
           duration: ex.duration,
-          calories: ex.calories
+          calories: ex.calories,
+          video_url: ex.video_url,
+          plan_day: ex.plan_day,
+          access_tier: ex.access_tier
         }));
       });
 
@@ -357,9 +459,59 @@ const WorkoutsUserPage = () => {
     });
   }, [library, workoutSearch]);
 
+  const libraryTotalPages = Math.max(
+    1,
+    Math.ceil(filteredDbWorkouts.length / libraryItemsPerPage),
+  );
+
+  const paginatedDbWorkouts = useMemo(() => {
+    const start = (libraryPage - 1) * libraryItemsPerPage;
+    const end = start + libraryItemsPerPage;
+    return filteredDbWorkouts.slice(start, end);
+  }, [filteredDbWorkouts, libraryPage]);
+
+  useEffect(() => {
+    if (libraryPage > libraryTotalPages) {
+      setLibraryPage(libraryTotalPages);
+    }
+  }, [libraryPage, libraryTotalPages]);
+
+  const previewProgramDays = useMemo(() => {
+    const normalized = normalizeProgramDays(previewWorkout);
+    if (normalized.length > 0) return normalized;
+
+    if (!previewWorkout) return [];
+    const fallbackExercises = Array.isArray(previewWorkout.exercises)
+      ? previewWorkout.exercises
+      : [];
+    if (fallbackExercises.length === 0) return [];
+
+    return [
+      {
+        day_number: 1,
+        day_title: "Day 1",
+        exercises: fallbackExercises,
+      },
+    ];
+  }, [previewWorkout]);
+
+  const previewExerciseCount = useMemo(
+    () => previewProgramDays.reduce((sum, day) => sum + day.exercises.length, 0),
+    [previewProgramDays],
+  );
+
+  const previewCategoryName = useMemo(() => {
+    if (!previewWorkout) return "";
+    if (typeof previewWorkout.category_id === "object") {
+      return previewWorkout.category_id?.name || "";
+    }
+    return "";
+  }, [previewWorkout]);
+
   useEffect(() => {
     if (!previewWorkoutId) {
       setPreviewWorkout(null);
+      setPreviewFocusDay(null);
       setPreviewError(null);
       setPreviewLoading(false);
       return;
@@ -382,14 +534,14 @@ const WorkoutsUserPage = () => {
         const data = await res.json();
         if (!res.ok) {
           setPreviewWorkout(null);
-          setPreviewError(data?.error || "Không thể tải chi tiết bài tập.");
+          setPreviewError(data?.error || "Unable to load workout details.");
           return;
         }
         setPreviewWorkout(data);
       } catch (e: any) {
         if (e?.name === "AbortError") return;
         setPreviewWorkout(null);
-        setPreviewError("Có lỗi xảy ra khi kết nối tới server.");
+        setPreviewError("A server connection error occurred.");
       } finally {
         setPreviewLoading(false);
       }
@@ -405,6 +557,15 @@ const WorkoutsUserPage = () => {
     const s2 = new Date(`1970-01-01T${start2}:00`);
     const e2 = new Date(`1970-01-01T${end2}:00`);
     return s1 < e2 && e1 > s2;
+  };
+
+  const openWorkoutPreview = (workoutId?: string, focusDay?: number) => {
+    if (!workoutId) {
+      alert("No workout details are available for this schedule item.");
+      return;
+    }
+    setPreviewFocusDay(typeof focusDay === "number" ? focusDay : null);
+    setPreviewWorkoutId(workoutId);
   };
 
   const generateTargetDates = (startDateStr: string, type: string) => {
@@ -431,17 +592,54 @@ const WorkoutsUserPage = () => {
   };
 
   const addToRoutine = async (workout: Workout) => {
-    if (isPastDate) {
-        alert("Không thể lên lịch tập cho một ngày trong quá khứ!");
-        return;
-    }
+    const isLockedWorkout =
+      workout.is_locked || (workout.access_tier === "premium" && !hasPremiumAccess);
 
-    if (addStartTime >= addEndTime) {
-      alert("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.");
+    if (isLockedWorkout) {
+      alert("This is a paid workout. Please upgrade your plan to use it.");
+      navigate("/subscription");
       return;
     }
 
-    const targetDates = generateTargetDates(selectedDate, recurrence);
+    if (isReadOnlyDate) {
+      alert("You can only add a schedule while viewing today.");
+      return;
+    }
+
+    if (addStartTime >= addEndTime) {
+      alert("Start time must be earlier than end time.");
+      return;
+    }
+
+    const roadmapDays = normalizeProgramDays(workout);
+    const isMultiDayRoadmap = roadmapDays.length >= 2;
+    const singleDayExercises =
+      roadmapDays.length === 1 ? roadmapDays[0].exercises : workout.exercises || [];
+
+    if (isMultiDayRoadmap && recurrence !== "none") {
+      alert("Multi-day roadmaps are auto-assigned by Day 1, Day 2, Day 3... and ignore repeat options.");
+    }
+
+    const planEntries =
+      isMultiDayRoadmap
+        ? roadmapDays.map((day, index) => {
+            const dateObj = parseLocalDate(selectedDate);
+            const offset = Math.max((day.day_number || index + 1) - 1, 0);
+            dateObj.setDate(dateObj.getDate() + offset);
+            return {
+              targetDate: getLocalDateString(dateObj),
+              dayNumber: day.day_number || index + 1,
+              dayLabel: day.day_title || `Day ${index + 1}`,
+              exercises: day.exercises,
+            };
+          })
+        : generateTargetDates(selectedDate, recurrence).map((targetDate) => ({
+            targetDate,
+            dayNumber: 1,
+            dayLabel: "",
+            exercises: singleDayExercises,
+          }));
+
     let successCount = 0;
     let overlapCount = 0;
 
@@ -449,7 +647,8 @@ const WorkoutsUserPage = () => {
     const newEventsByDate = { ...eventsByDate };
     const promises = [];
 
-    for (const targetDate of targetDates) {
+    for (const entry of planEntries) {
+        const { targetDate, exercises, dayLabel, dayNumber } = entry;
         const existingExs = newExercisesByDate[targetDate] || [];
 
         const hasOverlap = existingExs.some(ex =>
@@ -461,30 +660,36 @@ const WorkoutsUserPage = () => {
           continue; 
         }
 
+        const caloriesBase = workout.calories_burned || workout.estimatedCalories || 0;
         let newExercisesFromWorkout = [];
-        if (workout.exercises && workout.exercises.length > 0) {
-          newExercisesFromWorkout = workout.exercises.map((ex: any, i: number) => ({
-            id: `${workout._id}-${targetDate}-${Date.now()}-${i}`,
+        if (Array.isArray(exercises) && exercises.length > 0) {
+          const caloriesEach = Math.round(caloriesBase / exercises.length) || 0;
+          newExercisesFromWorkout = exercises.map((ex: any, i: number) => ({
+            id: `${workout._id}-${targetDate}-${dayNumber}-${Date.now()}-${i}`,
             workout_id: workout._id,
-            name: ex.title || workout.title || workout.name || "Workout",
+            name: `${dayLabel ? `${dayLabel} - ` : ""}${ex.title || workout.title || workout.name || "Workout"}`,
             startTime: addStartTime,
             endTime: addEndTime,
             image: workout.cover_image || "https://placehold.co/100x100/png?text=Workout",
             duration: Math.round((ex.duration_sec || 60) / 60),
-            calories: Math.round((workout.calories_burned || workout.estimatedCalories || 0) / workout.exercises!.length),
-            video_url: ex.video_url
+            calories: caloriesEach,
+            video_url: ex.video_url,
+            plan_day: dayNumber,
+            access_tier: workout.access_tier || "free"
           }));
         } else {
           newExercisesFromWorkout = [{
-            id: `${workout._id}-${targetDate}-${Date.now()}`,
+            id: `${workout._id}-${targetDate}-${dayNumber}-${Date.now()}`,
             workout_id: workout._id,
-            name: workout.title || workout.name || "Workout",
+            name: `${dayLabel ? `${dayLabel} - ` : ""}${workout.title || workout.name || "Workout"}`,
             startTime: addStartTime,
             endTime: addEndTime,
             image: workout.cover_image || "https://placehold.co/100x100/png?text=Workout",
             duration: workout.duration || 30,
-            calories: workout.calories_burned || workout.estimatedCalories || 0,
-            video_url: workout.video_url
+            calories: caloriesBase,
+            video_url: workout.video_url,
+            plan_day: dayNumber,
+            access_tier: workout.access_tier || "free"
           }];
         }
 
@@ -503,7 +708,7 @@ const WorkoutsUserPage = () => {
     }
 
     if (successCount === 0) {
-      alert("Không thể thêm lịch. Các khung giờ trong ngày bạn chọn đều đã có bài tập!");
+      alert("Cannot add schedule. All selected time slots already contain workouts.");
       return;
     }
 
@@ -516,8 +721,11 @@ const WorkoutsUserPage = () => {
       const newNoti = {
         id: `reminder_${Date.now()}`,
         title: 'Workout Reminder',
-        message: `Đã xếp lịch: ${workout.title || workout.name} vào ${successCount} ngày tới lúc ${addStartTime}.`,
-        timeLabel: 'Mới',
+          message:
+          isMultiDayRoadmap
+            ? `Roadmap scheduled: ${workout.title || workout.name} (${successCount} days).`
+            : `Scheduled ${workout.title || workout.name} for ${successCount} days at ${addStartTime}.`,
+        timeLabel: 'New',
         unread: true,
         href: '/workouts',
         icon: 'alarm',
@@ -529,22 +737,37 @@ const WorkoutsUserPage = () => {
 
       setPreviewWorkoutId(null);
       
-      let msg = `Đã thêm bài tập thành công vào ${successCount} ngày!`;
-      if (overlapCount > 0) msg += ` (Hệ thống đã tự động bỏ qua ${overlapCount} ngày do bạn bị trùng giờ)`;
+      let msg =
+        isMultiDayRoadmap
+          ? `Roadmap added successfully to ${successCount} days!`
+          : `Workout added successfully to ${successCount} days!`;
+      if (overlapCount > 0) msg += ` (${overlapCount} days were skipped automatically due to time overlap)`;
       alert(msg);
 
     } catch (error) {
-      alert("Có lỗi khi lưu lịch lên server.");
+      alert("An error occurred while saving the schedule to the server.");
     }
   };
 
   const startWorkoutSession = () => {
-    if (isPastDate) {
-        alert("Đã qua ngày tập, không thể bắt đầu.");
-        return;
+    if (selectedDate !== todayStrLocal) {
+      alert("You can only start a workout on today's date.");
+      return;
+    }
+    const hasLockedPremiumExercise = todaysExercises.some(
+      (exercise) => {
+        const fromLibrary = library.find((w) => w._id === exercise.workout_id)?.access_tier;
+        const tier = exercise.access_tier || fromLibrary;
+        return tier === "premium" && !hasPremiumAccess;
+      },
+    );
+    if (hasLockedPremiumExercise) {
+      alert("Today's routine includes premium workouts. Please upgrade to continue.");
+      navigate("/subscription");
+      return;
     }
     if (todaysExercises.length === 0) {
-      alert("Không có bài tập nào. Hãy thêm từ danh sách.");
+      alert("No workouts found. Please add one from the library.");
       return;
     }
     setIsWorkoutActive(true);
@@ -612,14 +835,14 @@ const WorkoutsUserPage = () => {
   };
 
   const removeFromRoutine = async (index: number) => {
-    if (isPastDate) return;
+    if (isReadOnlyDate) return;
     const newExercises = todaysExercises.filter((_, i) => i !== index);
     setExercisesByDate(prev => ({ ...prev, [selectedDate]: newExercises }));
     await updateDailyRoutine({ date: selectedDate, exercises: newExercises });
   };
 
   const moveUp = async (index: number) => {
-    if (isPastDate) return;
+    if (isReadOnlyDate) return;
     if (index > 0) {
       const newExercises = [...todaysExercises];
       [newExercises[index - 1], newExercises[index]] = [newExercises[index], newExercises[index - 1]];
@@ -629,7 +852,7 @@ const WorkoutsUserPage = () => {
   };
 
   const moveDown = async (index: number) => {
-    if (isPastDate) return;
+    if (isReadOnlyDate) return;
     if (index < todaysExercises.length - 1) {
       const newExercises = [...todaysExercises];
       [newExercises[index], newExercises[index + 1]] = [newExercises[index + 1], newExercises[index]];
@@ -716,20 +939,24 @@ const WorkoutsUserPage = () => {
               </div>
             </div>
             
-            {/* 🔴 CHỈ CHO BẤM START NẾU KO PHẢI QUÁ KHỨ */}
             {isPastDate ? (
-                <div className="flex min-w-[140px] items-center justify-center gap-2 rounded-lg h-12 px-6 bg-slate-200 dark:bg-slate-800 text-slate-500 text-sm font-bold cursor-not-allowed">
-                    <span className="material-symbols-outlined text-xl">lock_clock</span>
-                    <span className="truncate">Đã qua ngày</span>
-                </div>
+              <div className="flex min-w-[160px] items-center justify-center gap-2 rounded-lg h-12 px-6 bg-slate-200 dark:bg-slate-800 text-slate-500 text-sm font-bold cursor-not-allowed">
+                <span className="material-symbols-outlined text-xl">lock_clock</span>
+                <span className="truncate">Past date</span>
+              </div>
+            ) : isFutureDate ? (
+              <div className="flex min-w-[190px] items-center justify-center gap-2 rounded-lg h-12 px-6 bg-slate-200 dark:bg-slate-800 text-slate-500 text-sm font-bold cursor-not-allowed">
+                <span className="material-symbols-outlined text-xl">event_busy</span>
+                <span className="truncate">Future date (view only)</span>
+              </div>
             ) : (
-                <button
-                  onClick={startWorkoutSession}
-                  className="flex min-w-[140px] cursor-pointer items-center justify-center gap-2 rounded-lg h-12 px-6 bg-primary text-slate-900 text-sm font-bold leading-normal transition-all hover:scale-[1.02] shadow-lg shadow-primary/20"
-                >
-                  <span className="material-symbols-outlined text-xl">play_circle</span>
-                  <span className="truncate">Start Workout</span>
-                </button>
+              <button
+                onClick={startWorkoutSession}
+                className="flex min-w-[160px] cursor-pointer items-center justify-center gap-2 rounded-lg h-12 px-6 bg-primary text-slate-900 text-sm font-bold leading-normal transition-all hover:scale-[1.02] shadow-lg shadow-primary/20"
+              >
+                <span className="material-symbols-outlined text-xl">play_circle</span>
+                <span className="truncate">Start Workout</span>
+              </button>
             )}
           </div>
 
@@ -738,9 +965,9 @@ const WorkoutsUserPage = () => {
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">calendar_today</span>
-                Routine cho {selectedDate === todayStrLocal ? "Hôm nay" : new Date(selectedDate).toLocaleDateString()}
+                Routine for {selectedDate === todayStrLocal ? "Today" : new Date(selectedDate).toLocaleDateString()}
               </h3>
-              {!isPastDate && (
+              {!isReadOnlyDate && (
                   <button
                     className="text-primary text-sm font-bold hover:underline flex items-center gap-1"
                     onClick={() => document.getElementById('workout-selection')?.scrollIntoView({ behavior: 'smooth' })}
@@ -751,7 +978,7 @@ const WorkoutsUserPage = () => {
             </div>
             <div className="flex flex-col gap-3">
               {todaysExercises.length === 0 ? (
-                <div className="text-slate-500 text-center py-8">Chưa có bài tập nào được lên lịch.</div>
+                <div className="text-slate-500 text-center py-8">No workouts scheduled yet.</div>
               ) : (
                 todaysExercises.map((ex, index) => (
                   <div key={ex.id} className="flex items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
@@ -766,21 +993,30 @@ const WorkoutsUserPage = () => {
                       <h4 className="font-bold text-slate-900 dark:text-slate-100">{ex.name}</h4>
                       <p className="text-sm text-slate-500">{ex.duration} min • 🔥 {ex.calories} kcal</p>
                     </div>
-                    
-                    {/* 🔴 CHỈ CHO XOÁ/SỬA KHI KO PHẢI QUÁ KHỨ */}
-                    {!isPastDate && (
-                        <div className="flex gap-1">
-                          <button onClick={() => moveUp(index)} className="p-1 text-slate-400 hover:text-primary">
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => openWorkoutPreview(ex.workout_id, ex.plan_day)}
+                        className="p-1 text-slate-400 hover:text-primary"
+                        title="View workout info"
+                      >
+                        <span className="material-symbols-outlined">visibility</span>
+                      </button>
+
+                      {/* Chi cho phep sua routine khi dang o ngay hom nay */}
+                      {!isReadOnlyDate && (
+                        <>
+                          <button onClick={() => moveUp(index)} className="p-1 text-slate-400 hover:text-primary" title="Move up">
                             <span className="material-symbols-outlined">arrow_upward</span>
                           </button>
-                          <button onClick={() => moveDown(index)} className="p-1 text-slate-400 hover:text-primary">
+                          <button onClick={() => moveDown(index)} className="p-1 text-slate-400 hover:text-primary" title="Move down">
                             <span className="material-symbols-outlined">arrow_downward</span>
                           </button>
-                          <button onClick={() => removeFromRoutine(index)} className="p-1 text-slate-400 hover:text-red-500">
+                          <button onClick={() => removeFromRoutine(index)} className="p-1 text-slate-400 hover:text-red-500" title="Delete">
                             <span className="material-symbols-outlined">delete</span>
                           </button>
-                        </div>
-                    )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))
               )}
@@ -797,14 +1033,14 @@ const WorkoutsUserPage = () => {
             </div>
             <div className="flex gap-6 overflow-x-auto pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {recommendations.length === 0 ? (
-                  <div className="text-sm text-slate-500">Đang phân tích BMI và lấy đề xuất...</div>
+                  <div className="text-sm text-slate-500">Analyzing BMI and generating recommendations...</div>
               ) : (
                   recommendations.map((rec, i) => (
                     <RecommendCard
                       key={i}
                       {...rec}
                       workout={rec.workout}
-                      onAdd={(w) => setPreviewWorkoutId(w._id)} 
+                      onAdd={(w) => openWorkoutPreview(w._id)} 
                     />
                   ))
               )}
@@ -816,7 +1052,7 @@ const WorkoutsUserPage = () => {
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">fitness_center</span>
-                <h3 className="text-xl font-bold">Thư viện hệ thống</h3>
+                <h3 className="text-xl font-bold">System Library</h3>
               </div>
 
               <div className="flex items-center gap-3">
@@ -826,8 +1062,11 @@ const WorkoutsUserPage = () => {
                   </span>
                   <input
                     value={workoutSearch}
-                    onChange={(e) => setWorkoutSearch(e.target.value)}
-                    placeholder="Tìm theo tên / level / category..."
+                    onChange={(e) => {
+                      setWorkoutSearch(e.target.value);
+                      setLibraryPage(1);
+                    }}
+                    placeholder="Search by name / level / category..."
                     className="h-11 w-[320px] max-w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
@@ -836,49 +1075,91 @@ const WorkoutsUserPage = () => {
 
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
               {loading ? (
-                <div className="text-sm text-slate-500 px-2 py-6">Đang tải danh sách...</div>
+                <div className="text-sm text-slate-500 px-2 py-6">Loading library...</div>
               ) : filteredDbWorkouts.length === 0 ? (
-                <div className="text-sm text-slate-500 px-2 py-6">Không tìm thấy bài tập phù hợp.</div>
+                <div className="text-sm text-slate-500 px-2 py-6">No matching workouts found.</div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {filteredDbWorkouts.slice(0, 9).map((w) => {
-                    const title = w.title || w.name || "Workout";
-                    const isSelected = selectedWorkoutId === w._id;
-                    const img = w.cover_image || "https://placehold.co/600x400/png?text=Workout";
-                    const calories = w.estimatedCalories || w.calories_burned;
-                    const duration = w.duration;
+                <div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {paginatedDbWorkouts.map((w) => {
+                      const title = w.title || w.name || "Workout";
+                      const isSelected = selectedWorkoutId === w._id;
+                      const img = w.cover_image || "https://placehold.co/600x400/png?text=Workout";
+                      const calories = w.estimatedCalories || w.calories_burned;
+                      const duration = w.duration;
+                      const isLockedWorkout = w.is_locked || (w.access_tier === "premium" && !hasPremiumAccess);
 
-                    return (
-                      <div
-                        key={w._id}
-                        onClick={() => setPreviewWorkoutId(w._id)}
-                        className={`cursor-pointer text-left group rounded-xl border p-4 transition-all hover:shadow-md ${isSelected
-                            ? "border-primary bg-primary/5 shadow-md"
-                            : "border-slate-200 dark:border-slate-800 hover:border-primary/40"
-                          }`}
-                      >
-                        {img && (
-                          <img
-                            src={img}
-                            alt={title}
-                            className="w-full h-32 object-cover rounded-lg mb-3"
-                          />
-                        )}
-                        <h4 className="font-bold text-lg mb-2 truncate">{title}</h4>
-                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">
-                          {w.description || "Mô tả bài tập"}
-                        </p>
-                        <div className="flex gap-2 flex-wrap">
-                          <span className="text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full font-medium">
-                            🔥 {calories || 0} kcal
-                          </span>
-                          <span className="text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full font-medium">
-                            ⏱ {duration || 0} phút
-                          </span>
+                      return (
+                        <div
+                          key={w._id}
+                          onClick={() => {
+                            setSelectedWorkoutId(w._id);
+                            openWorkoutPreview(w._id);
+                          }}
+                          className={`cursor-pointer text-left group rounded-xl border p-4 transition-all hover:shadow-md ${isSelected
+                              ? "border-primary bg-primary/5 shadow-md"
+                              : "border-slate-200 dark:border-slate-800 hover:border-primary/40"
+                            }`}
+                        >
+                          {img && (
+                            <img
+                              src={img}
+                              alt={title}
+                              className="w-full h-32 object-cover rounded-lg mb-3"
+                            />
+                          )}
+                          <h4 className="font-bold text-lg mb-2 truncate">{title}</h4>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">
+                            {w.description || "Workout description"}
+                          </p>
+                          <div className="flex gap-2 flex-wrap">
+                            <span className={`text-xs px-3 py-1 rounded-full font-semibold ${w.access_tier === "premium" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>
+                              {w.access_tier === "premium" ? "Premium" : "Free"}
+                            </span>
+                            <span className="text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full font-medium">
+                              🔥 {calories || 0} kcal
+                            </span>
+                            <span className="text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full font-medium">
+                              ⏱ {duration || 0} min
+                            </span>
+                            {isLockedWorkout && (
+                              <span className="text-xs bg-rose-100 text-rose-700 px-3 py-1 rounded-full font-semibold">
+                                Upgrade required
+                              </span>
+                            )}
+                          </div>
                         </div>
+                      );
+                    })}
+                  </div>
+
+                  {filteredDbWorkouts.length > libraryItemsPerPage && (
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xs text-slate-500">
+                        Showing {(libraryPage - 1) * libraryItemsPerPage + 1}-
+                        {Math.min(libraryPage * libraryItemsPerPage, filteredDbWorkouts.length)} of {filteredDbWorkouts.length} workouts
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setLibraryPage((page) => Math.max(page - 1, 1))}
+                          disabled={libraryPage === 1}
+                          className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
+                        >
+                          Previous
+                        </button>
+                        <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                          Page {libraryPage} / {libraryTotalPages}
+                        </span>
+                        <button
+                          onClick={() => setLibraryPage((page) => Math.min(page + 1, libraryTotalPages))}
+                          disabled={libraryPage === libraryTotalPages}
+                          className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-slate-100 dark:bg-slate-800 disabled:opacity-50"
+                        >
+                          Next
+                        </button>
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -886,9 +1167,9 @@ const WorkoutsUserPage = () => {
 
           {/* Workout History */}
           <div>
-            <h2 className="text-2xl font-bold mb-4">Lịch sử tập</h2>
+            <h2 className="text-2xl font-bold mb-4">Workout History</h2>
             {logs.length === 0 ? (
-              <div className="text-slate-500">Chưa có lịch sử tập luyện</div>
+              <div className="text-slate-500">No workout history yet</div>
             ) : (
               <>
                 {(() => {
@@ -909,11 +1190,11 @@ const WorkoutsUserPage = () => {
                         <table className="w-full text-sm">
                           <thead className="bg-slate-200">
                             <tr>
-                              <th className="p-3 text-left">Bài tập</th>
-                              <th className="p-3 text-left">Thời gian</th>
+                              <th className="p-3 text-left">Workout</th>
+                              <th className="p-3 text-left">Duration</th>
                               <th className="p-3 text-left">Calories</th>
-                              <th className="p-3 text-left">Giờ tập</th>
-                              <th className="p-3 text-left">Ngày</th>
+                              <th className="p-3 text-left">Start time</th>
+                              <th className="p-3 text-left">Date</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -921,7 +1202,7 @@ const WorkoutsUserPage = () => {
                               const workoutName =
                                 log.workout_id?.title ||
                                 log.workout_id?.name ||
-                                "Workout (Đã Xóa/Youtube)";
+                                "Workout (Deleted/YouTube)";
 
                               const formattedTime = log.start_time
                                 ? new Date(`1970-01-01T${log.start_time}`).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -984,7 +1265,7 @@ const WorkoutsUserPage = () => {
               <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-800 shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary">fitness_center</span>
-                  <h3 className="text-lg font-bold">Thông tin bài tập</h3>
+                  <h3 className="text-lg font-bold">Workout Details</h3>
                 </div>
                 <button
                   type="button"
@@ -996,7 +1277,7 @@ const WorkoutsUserPage = () => {
               </div>
 
               {previewLoading ? (
-                <div className="p-6 text-sm text-slate-500 flex-1">Đang tải chi tiết...</div>
+                <div className="p-6 text-sm text-slate-500 flex-1">Loading details...</div>
               ) : previewError ? (
                 <div className="p-6 flex-1">
                   <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -1025,32 +1306,121 @@ const WorkoutsUserPage = () => {
                     />
                   )}
 
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-4">
                     <h4 className="text-xl font-bold">{previewWorkout.title || previewWorkout.name}</h4>
                     <p className="text-slate-600 dark:text-slate-400">{previewWorkout.description}</p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
+                        <p className="text-[11px] uppercase font-bold text-slate-500">Category</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{previewCategoryName || "General"}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
+                        <p className="text-[11px] uppercase font-bold text-slate-500">Roadmap Days</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{previewProgramDays.length || 1}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
+                        <p className="text-[11px] uppercase font-bold text-slate-500">Total Exercises</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{previewExerciseCount}</p>
+                      </div>
+                    </div>
+
                     <div className="flex gap-4 flex-wrap">
+                      <span className={`text-sm px-3 py-1 rounded-full font-semibold ${previewWorkout.access_tier === "premium" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>
+                        {previewWorkout.access_tier === "premium" ? "Premium workout" : "Free workout"}
+                      </span>
                       <span className="text-sm bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">
                         🔥 {previewWorkout.calories_burned || previewWorkout.estimatedCalories || 0} kcal
                       </span>
                       <span className="text-sm bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">
-                        ⏱ {previewWorkout.duration || 0} phút
+                        ⏱ {previewWorkout.duration || 0} min
                       </span>
                       {(previewWorkout.level || previewWorkout.difficulty) && (
                         <span className={`text-sm px-3 py-1 rounded-full ${getLevelBadgeStyle(previewWorkout.level || previewWorkout.difficulty || "")}`}>
                           {previewWorkout.level || previewWorkout.difficulty}
                         </span>
                       )}
+                      {(previewWorkout.is_locked || (previewWorkout.access_tier === "premium" && !hasPremiumAccess)) && (
+                        <span className="text-sm bg-rose-100 text-rose-700 px-3 py-1 rounded-full font-semibold">
+                          Upgrade to start workout
+                        </span>
+                      )}
                     </div>
+
+                    {previewProgramDays.length > 0 && (
+                      <div className="mt-1 rounded-xl border border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-800/40">
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-xs font-bold uppercase text-slate-500">
+                            Basic Exercise Info
+                          </p>
+                          {previewFocusDay !== null && (
+                            <span className="text-[11px] font-semibold text-primary">
+                              Focus: Day {previewFocusDay}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="space-y-3">
+                          {previewProgramDays.map((day, dayIndex) => {
+                            const exerciseItems = Array.isArray(day.exercises) ? day.exercises : [];
+                            const isFocusedDay =
+                              previewFocusDay !== null && day.day_number === previewFocusDay;
+
+                            return (
+                              <div
+                                key={`${day.day_number || dayIndex + 1}-${dayIndex}`}
+                                className={`rounded-lg border px-3 py-2 ${isFocusedDay ? "border-primary bg-primary/5" : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50"}`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                    {day.day_title || `Day ${day.day_number || dayIndex + 1}`}
+                                  </p>
+                                  <span className="text-[11px] text-slate-500 font-medium">
+                                    {exerciseItems.length} exercises
+                                  </span>
+                                </div>
+
+                                {exerciseItems.length === 0 ? (
+                                  <p className="text-xs text-slate-500 mt-1">No exercises in this day yet.</p>
+                                ) : (
+                                  <ul className="mt-2 space-y-1.5">
+                                    {exerciseItems.map((exercise, exerciseIndex) => {
+                                      const durationMinutes = Math.max(
+                                        Math.round((exercise.duration_sec || 60) / 60),
+                                        1,
+                                      );
+                                      return (
+                                        <li
+                                          key={`${day.day_number || dayIndex + 1}-${exerciseIndex}`}
+                                          className="rounded-md border border-slate-200 dark:border-slate-700 px-2.5 py-1.5"
+                                        >
+                                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                                            {exercise.title || `Exercise ${exerciseIndex + 1}`}
+                                          </p>
+                                          <p className="text-xs text-slate-500">
+                                            {durationMinutes} min {exercise.video_url ? "• Video included" : "• No video"}
+                                          </p>
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
-                <div className="p-6 text-sm text-slate-500 flex-1">Không có dữ liệu.</div>
+                <div className="p-6 text-sm text-slate-500 flex-1">No data available.</div>
               )}
 
               {/* KHU VỰC CHỌN GIỜ & LẶP LẠI (RECURRENCE) */}
-              {isPastDate ? (
+              {isReadOnlyDate ? (
                  <div className="p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-center text-slate-500 font-bold">
-                     Không thể lên lịch cho ngày quá khứ
+                     {isFutureDate ? "Future dates are view-only." : "Cannot schedule workouts for past dates."}
                  </div>
               ) : (
                   <div className="p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 shrink-0">
@@ -1058,7 +1428,7 @@ const WorkoutsUserPage = () => {
                         
                         <div className="flex flex-col gap-3 w-full md:w-auto">
                             <div className="flex items-center gap-3">
-                                <label className="text-sm font-medium whitespace-nowrap min-w-[60px]">Hẹn giờ:</label>
+                                <label className="text-sm font-medium whitespace-nowrap min-w-[60px]">Time:</label>
                                 <input
                                     type="time"
                                     value={addStartTime}
@@ -1075,25 +1445,30 @@ const WorkoutsUserPage = () => {
                             </div>
                             
                             <div className="flex items-center gap-3">
-                                <label className="text-sm font-medium whitespace-nowrap min-w-[60px]">Lặp lại:</label>
+                                <label className="text-sm font-medium whitespace-nowrap min-w-[60px]">Repeat:</label>
                                 <select
                                     value={recurrence}
                                     onChange={(e) => setRecurrence(e.target.value as any)}
                                     className="h-9 px-2 rounded-lg border border-slate-300 dark:border-slate-700 text-sm outline-none focus:border-primary bg-white dark:bg-slate-800 w-full"
                                 >
-                                    <option value="none">Chỉ ngày đang chọn</option>
-                                    <option value="daily_week">Hàng ngày (Trong 7 ngày tới)</option>
-                                    <option value="246_week">Thứ 2-4-6 (Trong 7 ngày tới)</option>
-                                    <option value="357_week">Thứ 3-5-7 (Trong 7 ngày tới)</option>
+                                    <option value="none">Selected day only</option>
+                                    <option value="daily_week">Daily (next 7 days)</option>
+                                    <option value="246_week">Mon-Wed-Fri (next 7 days)</option>
+                                    <option value="357_week">Tue-Thu-Sat (next 7 days)</option>
                                 </select>
                             </div>
                         </div>
 
                         <button
                             onClick={() => previewWorkout && addToRoutine(previewWorkout)}
-                            className="w-full md:w-auto h-11 px-6 bg-primary text-slate-900 text-sm font-bold rounded-lg hover:brightness-105 shadow-sm transition-all flex items-center justify-center gap-2 shrink-0"
+                            disabled={Boolean(previewWorkout && (previewWorkout.is_locked || (previewWorkout.access_tier === "premium" && !hasPremiumAccess)))}
+                            className={`w-full md:w-auto h-11 px-6 text-sm font-bold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 shrink-0 ${
+                              previewWorkout && (previewWorkout.is_locked || (previewWorkout.access_tier === "premium" && !hasPremiumAccess))
+                                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                                : "bg-primary text-slate-900 hover:brightness-105"
+                            }`}
                         >
-                            <span className="material-symbols-outlined text-[18px]">calendar_add_on</span> Thêm vào Lịch
+                            <span className="material-symbols-outlined text-[18px]">calendar_add_on</span> Add to Schedule
                         </button>
                     </div>
                   </div>
@@ -1113,13 +1488,13 @@ const WorkoutsUserPage = () => {
                   <span className="material-symbols-outlined">close</span>
                 </button>
                 <div>
-                  <h2 className="text-xl font-bold">Bài tập {currentExerciseIndex + 1}/{todaysExercises.length}</h2>
+                  <h2 className="text-xl font-bold">Exercise {currentExerciseIndex + 1}/{todaysExercises.length}</h2>
                   <p className="text-sm opacity-80">{todaysExercises[currentExerciseIndex].name}</p>
                 </div>
               </div>
               <div className="text-right">
                 <div className="text-2xl font-mono font-bold">{formatTime(exerciseTimer)}</div>
-                <div className="text-sm opacity-80">Thời gian tập</div>
+                <div className="text-sm opacity-80">Workout time</div>
               </div>
             </div>
 
@@ -1136,7 +1511,7 @@ const WorkoutsUserPage = () => {
                   />
                 ) : (
                   <div className="aspect-video bg-slate-800 rounded-lg flex items-center justify-center text-white">
-                    Video Hướng Dẫn Không Có Sẵn
+                    Instructional video unavailable
                   </div>
                 )}
               </div>
@@ -1149,7 +1524,7 @@ const WorkoutsUserPage = () => {
                   disabled={currentExerciseIndex === 0}
                   className="px-6 py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white rounded-lg font-medium"
                 >
-                  <span className="material-symbols-outlined mr-2">skip_previous</span> Trước
+                  <span className="material-symbols-outlined mr-2">skip_previous</span> Previous
                 </button>
 
                 <button
@@ -1158,11 +1533,11 @@ const WorkoutsUserPage = () => {
                   className="px-8 py-3 bg-primary hover:bg-primary/80 disabled:opacity-50 text-slate-900 rounded-lg font-bold"
                 >
                   {finishingWorkout ? (
-                    <><span className="material-symbols-outlined mr-2 animate-spin">refresh</span> Đang lưu...</>
+                    <><span className="material-symbols-outlined mr-2 animate-spin">refresh</span> Saving...</>
                   ) : currentExerciseIndex < todaysExercises.length - 1 ? (
-                    <><span className="material-symbols-outlined mr-2">skip_next</span> Tiếp theo</>
+                    <><span className="material-symbols-outlined mr-2">skip_next</span> Next</>
                   ) : (
-                    <><span className="material-symbols-outlined mr-2">check_circle</span> Hoàn thành</>
+                    <><span className="material-symbols-outlined mr-2">check_circle</span> Finish</>
                   )}
                 </button>
               </div>
@@ -1175,11 +1550,11 @@ const WorkoutsUserPage = () => {
         <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center">
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 max-w-md mx-4 text-center animate-bounce">
             <div className="text-6xl mb-4">🎉</div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Chúc mừng!</h2>
-            <p className="text-slate-600 dark:text-slate-400 mb-4">Bạn đã hoàn thành tốt việc tập luyện ngày hôm nay!</p>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Congratulations!</h2>
+            <p className="text-slate-600 dark:text-slate-400 mb-4">You completed your workout plan for today!</p>
             <div className="text-4xl mb-4">🏆</div>
             <button onClick={() => setShowCongrats(false)} className="bg-primary text-slate-900 px-6 py-2 rounded-lg font-bold hover:opacity-90">
-              Tiếp tục
+              Continue
             </button>
           </div>
         </div>
@@ -1190,3 +1565,4 @@ const WorkoutsUserPage = () => {
 };
 
 export default WorkoutsUserPage;
+

@@ -89,7 +89,7 @@ const OnboardingPage = () => {
       <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 p-8 sm:p-10">
         
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold mb-2 text-slate-900 dark:text-white">Hoàn thiện hồ sơ</h1>
+          <h1 className="text-2xl font-bold mb-2 text-slate-900 dark:text-white">Complete Your Profile</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">Giúp AI Coach hiểu rõ cơ thể bạn để đưa ra lộ trình phù hợp nhất.</p>
         </div>
 

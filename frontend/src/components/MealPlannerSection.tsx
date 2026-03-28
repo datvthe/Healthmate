@@ -1,12 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
+import {
+  calculateCalorieTargetFromProfile,
+  getAgeFromBirthDate,
+  normalizeGoalType,
+} from '../utils/nutritionTargets';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface User {
   _id: string;
   email: string;
-  profile: { full_name: string };
+  profile: {
+    full_name: string;
+    goal?: string;
+    weight_kg?: number;
+    height_cm?: number;
+    gender?: string;
+    birth_date?: string;
+  };
 }
 
 interface MealItem {
@@ -38,7 +50,6 @@ const MEAL_SLOTS = [
 ] as const;
 type MealSlotKey = typeof MEAL_SLOTS[number]['key'];
 
-const CALORIE_GOAL = 2000;
 const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -196,20 +207,32 @@ const MealPlannerSection: React.FC<MealPlannerSectionProps> = ({ onBack }) => {
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
+  const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const adminProfile = localUser?.profile || {};
   const selectedUser = users.find(u => u._id === targetUserId);
   const targetName = selectedUser?.profile.full_name ?? 'Admin';
-  const caloriePercent = Math.min(100, Math.round((totalCalories / CALORIE_GOAL) * 100));
-  const calorieRemain = Math.max(0, CALORIE_GOAL - totalCalories);
+  const targetProfile = selectedUser?.profile || adminProfile;
+  const goalType = normalizeGoalType(targetProfile?.goal);
+  const calorieGoal = calculateCalorieTargetFromProfile({
+    weight: Number(targetProfile?.weight_kg) || 70,
+    height: Number(targetProfile?.height_cm) || 170,
+    gender: targetProfile?.gender || 'male',
+    age: getAgeFromBirthDate(targetProfile?.birth_date, 25),
+    goalType,
+  }).targetCalories;
+
+  const caloriePercent = Math.min(100, Math.round((totalCalories / calorieGoal) * 100));
+  const calorieRemain = Math.max(0, calorieGoal - totalCalories);
   const ringColor = caloriePercent >= 100 ? '#ef4444' : caloriePercent >= 75 ? '#f59e0b' : '#13ec5b';
   const barColor = caloriePercent >= 100 ? 'bg-red-500' : caloriePercent >= 75 ? 'bg-yellow-400' : 'bg-primary';
 
   const grouped = groupBySlot(items);
-  const estCarb    = Math.round((totalCalories * 0.50) / 4);
-  const estProtein = Math.round((totalCalories * 0.25) / 4);
-  const estFat     = Math.round((totalCalories * 0.25) / 9);
+  const estCarb    = Math.round((calorieGoal * 0.50) / 4);
+  const estProtein = Math.round((calorieGoal * 0.25) / 4);
+  const estFat     = Math.round((calorieGoal * 0.25) / 9);
 
   const weekDates = buildWeekDates(selectedDate);
-  const weekMax = Math.max(...weekDates.map(d => weeklyData[d] || 0), CALORIE_GOAL);
+  const weekMax = Math.max(...weekDates.map(d => weeklyData[d] || 0), calorieGoal);
 
   const categories = [...new Set(foods.map(f => f.category))].filter(Boolean);
   const filteredFoods = foods.filter(f =>
@@ -456,7 +479,7 @@ const MealPlannerSection: React.FC<MealPlannerSectionProps> = ({ onBack }) => {
             <div className="mt-4 h-1.5 bg-[#28392e] rounded-full overflow-hidden">
               <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${caloriePercent}%` }} />
             </div>
-            <p className="text-center text-xs text-text-dim mt-1.5">Goal: {CALORIE_GOAL.toLocaleString()} kcal</p>
+            <p className="text-center text-xs text-text-dim mt-1.5">Goal: {calorieGoal.toLocaleString()} kcal</p>
           </div>
 
           {/* Macro estimate */}

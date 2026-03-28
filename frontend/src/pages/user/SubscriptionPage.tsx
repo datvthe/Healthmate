@@ -43,9 +43,15 @@ const SubscriptionPage = () => {
     return () => window.removeEventListener('user-updated', loadUser);
   }, []);
 
-  const isPro = user?.subscription?.plan === 'pro';
-  const proEndDate = isPro && user?.subscription?.endDate ? new Date(user.subscription.endDate) : null;
-  const isActivePro = isPro && proEndDate && proEndDate > new Date();
+  const plan = user?.subscription?.plan || "free";
+  const endDate = user?.subscription?.endDate ? new Date(user.subscription.endDate) : null;
+  const now = new Date();
+
+  const isActivePro = plan === "pro" && Boolean(endDate && endDate > now);
+  const isTrialActive = plan === "trial" && Boolean(endDate && endDate > now);
+  const hasPremiumAccess = isActivePro || isTrialActive || user?.subscription?.hasPremiumAccess;
+  const trialDaysLeft =
+    isTrialActive && endDate ? Math.max(Math.ceil((endDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)), 0) : 0;
 
   useEffect(() => {
     const status = searchParams.get('status');
@@ -109,9 +115,22 @@ const SubscriptionPage = () => {
       <Toaster position="top-right" />
       <div className="flex-1 p-8 max-w-[1000px] mx-auto w-full font-['Inter'] animate-fade-in">
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Nâng cấp tài khoản</h1>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Upgrade Account</h1>
           <p className="text-slate-500 mt-2">Mở khóa toàn bộ quyền năng của AI Coach để đạt mục tiêu nhanh nhất.</p>
         </div>
+
+        {isTrialActive && endDate && (
+          <div className="max-w-4xl mx-auto mb-6 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 px-4 py-3 text-sm font-medium">
+            Ban dang trong 7 ngay dung thu. Con <span className="font-bold">{trialDaysLeft}</span> ngay, het han vao{" "}
+            <span className="font-bold">{endDate.toLocaleDateString("vi-VN")}</span>.
+          </div>
+        )}
+
+        {!isTrialActive && !isActivePro && (
+          <div className="max-w-4xl mx-auto mb-6 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 px-4 py-3 text-sm font-medium">
+            Goi dung thu da het han. Ban co the tiep tuc voi workout Free hoac nang cap Pro de mo khoa workout tra phi.
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           
@@ -131,8 +150,12 @@ const SubscriptionPage = () => {
               <li className="flex items-center gap-3 text-slate-400"><span className="material-symbols-outlined">cancel</span> AI tạo lộ trình Mục tiêu</li>
               <li className="flex items-center gap-3 text-slate-400"><span className="material-symbols-outlined">cancel</span> Trợ lý ảo AI Coach 24/7</li>
             </ul>
-            <button disabled className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-xl font-bold cursor-not-allowed">
-              Đang sử dụng
+            <button disabled className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl font-bold cursor-not-allowed">
+              {isTrialActive
+                ? `Dang dung thu (${trialDaysLeft} ngay)`
+                : isActivePro
+                  ? "Dang su dung Pro"
+                  : "Goi Free"}
             </button>
           </div>
 
@@ -163,13 +186,19 @@ const SubscriptionPage = () => {
               className={`w-full py-3 rounded-xl font-bold transition-all shadow-lg flex justify-center items-center gap-2 relative z-10 ${isActivePro ? 'bg-primary/20 text-primary hover:bg-primary/30 border border-primary/50' : 'bg-primary text-slate-900 hover:brightness-110'}`}
             >
               {loading ? <span className="material-symbols-outlined animate-spin">progress_activity</span> : null}
-              {isActivePro ? 'Gia hạn gói Pro (+30 ngày)' : 'Nâng cấp qua PayOS'}
+              {isActivePro ? 'Gia hạn gói Pro (+30 ngày)' : isTrialActive ? 'Nang cap ngay (khong gian doan)' : 'Nâng cấp qua PayOS'}
             </button>
             
             {isActivePro && (
                 <p className="text-center text-xs text-slate-400 mt-4 relative z-10">
-                    Hạn sử dụng hiện tại: <span className="text-white font-bold">{proEndDate?.toLocaleDateString('vi-VN')}</span>
+                    Hạn sử dụng hiện tại: <span className="text-white font-bold">{endDate?.toLocaleDateString('vi-VN')}</span>
                 </p>
+            )}
+
+            {!hasPremiumAccess && (
+              <p className="text-center text-xs text-slate-400 mt-4 relative z-10">
+                Workout premium se bi khoa cho den khi ban nang cap Pro.
+              </p>
             )}
           </div>
 
@@ -180,3 +209,4 @@ const SubscriptionPage = () => {
 };
 
 export default SubscriptionPage;
+

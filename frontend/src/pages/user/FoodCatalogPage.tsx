@@ -174,7 +174,7 @@ const FoodCatalogPage = () => {
             </div>
 
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">Thêm vào thực đơn (100g)</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">Add to meal plan (100g)</p>
               <div className="grid grid-cols-4 gap-2">
                 <button onClick={() => handleAddFoodToMealPlan(food, 'breakfast')} className="py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 dark:bg-amber-900/20 dark:hover:bg-amber-900/40 dark:text-amber-400 rounded-lg text-[11px] font-bold transition-colors">
                     Sáng
@@ -201,15 +201,15 @@ const FoodCatalogPage = () => {
         {/* Header */}
         <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Thư viện Ẩm thực</h1>
-              <p className="text-slate-500 dark:text-slate-400 text-lg">Khám phá và thêm hàng trăm món ăn vào thực đơn của bạn.</p>
+              <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Food Library</h1>
+              <p className="text-slate-500 dark:text-slate-400 text-lg">Explore and add hundreds of foods to your plan.</p>
             </div>
             
             <div className="relative w-full md:w-80 shrink-0">
                 <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
                 <input
                   type="text"
-                  placeholder="Tìm món ăn..."
+                  placeholder="Search foods..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all shadow-sm"
@@ -222,14 +222,14 @@ const FoodCatalogPage = () => {
             <div className="mb-12 min-h-[300px]">
                 <div className="flex items-center gap-2 mb-6">
                     <span className="material-symbols-outlined text-primary text-3xl">auto_awesome</span>
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Gợi ý cho bạn</h2>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Recommended for You</h2>
                     <span className="bg-primary/20 text-primary text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest ml-2">Smart AI</span>
                 </div>
                 
                 {loadingAI ? (
                     <div className="flex flex-col items-center justify-center py-10">
                         <span className="material-symbols-outlined animate-spin text-primary text-4xl mb-3">refresh</span>
-                        <p className="text-sm font-bold text-slate-500 animate-pulse">AI đang chuẩn bị thực đơn phù hợp nhất cho bạn...</p>
+                        <p className="text-sm font-bold text-slate-500 animate-pulse">AI is preparing your personalized recommendations...</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -2,6 +2,19 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const WorkoutLog = require('../models/WorkoutLog');
+const {
+  createTrialEndDate,
+  syncExpiredSubscription,
+  toClientSubscription,
+} = require("../utils/subscriptionUtils");
+
+const buildUserResponse = (user) => ({
+  _id: user._id,
+  email: user.email,
+  role: user.role,
+  profile: user.profile,
+  subscription: toClientSubscription(user),
+});
 
 // Hàm tiện ích để tạo JWT cho user
 const generateToken = (userId) => {
@@ -39,6 +52,10 @@ const registerUser = async (req, res) => {
     const user = await User.create({
       email,
       password_hash: hashedPassword,
+      subscription: {
+        plan: "trial",
+        endDate: createTrialEndDate(),
+      },
       profile, // Chứa full_name, gender, height_cm... từ form gửi lên
     });
 
@@ -49,12 +66,7 @@ const registerUser = async (req, res) => {
     res.status(201).json({
       message: "Đăng ký tài khoản thành công!",
       token,
-      user: {
-        _id: user._id,
-        email: user.email,
-        role: user.role,
-        profile: user.profile,
-      },
+      user: buildUserResponse(user),
     });
   } catch (error) {
     res.status(500).json({ message: "Lỗi server", error: error.message });
@@ -92,19 +104,15 @@ const loginUser = async (req, res) => {
         .json({ message: "Email hoặc mật khẩu không đúng." });
     }
 
-    const token = generateToken(user._id);
+    await syncExpiredSubscription(user);
+    user.lastLogin = new Date();
+    await user.save();
 
     res.json({
-  message: "Đăng nhập thành công",
-  token: generateToken(user._id),
-  user: {
-    _id: user._id,
-    email: user.email,
-    role: user.role,
-    profile: user.profile,
-    subscription: user.subscription || { plan: 'free', endDate: null } // <--- BẠN PHẢI THÊM DÒNG NÀY
-  }
-});
+      message: "Đăng nhập thành công",
+      token: generateToken(user._id),
+      user: buildUserResponse(user),
+    });
   } catch (error) {
     res.status(500).json({ message: "Lỗi server", error: error.message });
   }
@@ -119,13 +127,9 @@ const getMe = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "Không tìm thấy người dùng." });
     }
+    await syncExpiredSubscription(user);
 
-    res.json({
-      _id: user._id,
-      email: user.email,
-      role: user.role,
-      profile: user.profile,
-    });
+    res.json(buildUserResponse(user));
   } catch (error) {
     res.status(500).json({ message: "Lỗi server", error: error.message });
   }
@@ -134,7 +138,27 @@ const getMe = async (req, res) => {
 
 const updateDailyRoutine = async (req, res) => {
   try {
-    const { date, exercises } = req.body;
+    const { date, exercises, source } = req.body;
+
+    if (!date || typeof date !== "string") {
+      return res.status(400).json({ message: "Thiếu ngày tập hợp lệ." });
+    }
+
+    // Optional guard: manual edits cannot change future days (view-only).
+    // We only enforce this for explicit manual update flows to keep roadmap
+    // auto-scheduling (Day 2, Day 3,...) working as expected.
+    if (source === "manual_edit") {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      const todayLocal = `${year}-${month}-${day}`;
+      if (date > todayLocal) {
+        return res.status(403).json({
+          message: "Ngày trong tương lai chỉ xem, không thể chỉnh sửa thủ công.",
+        });
+      }
+    }
 
     const user = await User.findById(req.user.id);
 
@@ -236,6 +260,41 @@ const updateProfile = async (req, res) => {
     res.status(500).json({ message: "Lỗi server", error: error.message });
   }
 };
+
+// [PUT] Cập nhật avatar người dùng
+// Hỗ trợ:
+// - multipart/form-data với file field "avatar"
+// - hoặc JSON body { picture: "https://..." }
+const updateAvatar = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng." });
+    }
+
+    const uploadedPicture = req.file?.path;
+    const pictureFromBody = req.body?.picture;
+
+    const nextPicture = uploadedPicture || pictureFromBody;
+    if (!nextPicture || typeof nextPicture !== "string") {
+      return res.status(400).json({ message: "Thiếu ảnh avatar hợp lệ." });
+    }
+
+    user.profile = {
+      ...user.profile,
+      picture: nextPicture.trim(),
+    };
+
+    const updatedUser = await user.save();
+
+    res.json({
+      message: "Cập nhật avatar thành công!",
+      profile: updatedUser.profile,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server", error: error.message });
+  }
+};
 const googleLogin = async (req, res) => {
   try {
     const { email, full_name, sub } = req.body;
@@ -260,6 +319,10 @@ const googleLogin = async (req, res) => {
       user = await User.create({
         email,
         password_hash: randomPassword,
+        subscription: {
+          plan: "trial",
+          endDate: createTrialEndDate(),
+        },
         profile: {
           full_name: full_name || "Người dùng Google",
         },
@@ -268,17 +331,16 @@ const googleLogin = async (req, res) => {
       return res.status(403).json({ message: "Tài khoản của bạn đã bị khóa." });
     }
 
+    await syncExpiredSubscription(user);
+    user.lastLogin = new Date();
+    await user.save();
+
     const token = generateToken(user._id);
 
     res.json({
       message: "Đăng nhập Google thành công!",
       token,
-      user: {
-        _id: user._id,
-        email: user.email,
-        role: user.role,
-        profile: user.profile,
-      },
+      user: buildUserResponse(user),
     });
   } catch (error) {
     res.status(500).json({ message: "Lỗi server", error: error.message });
@@ -289,7 +351,7 @@ const googleLogin = async (req, res) => {
 const getUsers = async (req, res) => {
   try {
     const users = await User.find({ role: "user" })
-      .select("_id email profile.full_name")
+      .select("_id email profile.full_name profile.goal profile.weight_kg profile.height_cm profile.gender profile.birth_date")
       .sort({ "profile.full_name": 1 });
     res.json(users);
   } catch (error) {
@@ -327,27 +389,83 @@ const getHealthMetrics = async (req, res) => {
 
     const pastWorkouts = await WorkoutLog.find({
       user_id: user._id,
-      date: { $gte: sevenDaysAgo }
-    });
+      date: { $gte: sevenDaysAgo },
+    }).populate({ path: "workout_id", select: "title name" });
 
-    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const toDateKey = (value) => {
+      const dateValue = new Date(value);
+      const year = dateValue.getFullYear();
+      const month = String(dateValue.getMonth() + 1).padStart(2, "0");
+      const day = String(dateValue.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    const groupedByDate = new Map();
+    for (const workout of pastWorkouts) {
+      const key = toDateKey(workout.date);
+      const current = groupedByDate.get(key) || {
+        minutes: 0,
+        calories: 0,
+        workoutCount: 0,
+        activities: [],
+      };
+
+      current.minutes += Number(workout.duration_minutes) || 0;
+      current.calories += Number(workout.calories_burned) || 0;
+      current.workoutCount += 1;
+      current.activities.push(
+        workout.workout_id?.title || workout.workout_id?.name || "Workout session",
+      );
+      groupedByDate.set(key, current);
+    }
+
     const chartData = [];
-    
     for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dayLabel = days[d.getDay()];
-      
-      // Tính tổng phút tập của ngày hôm đó
-      const minsThatDay = pastWorkouts
-        .filter(w => new Date(w.date).toDateString() === d.toDateString())
-        .reduce((sum, w) => sum + w.duration_minutes, 0);
-        
+      const dayDate = new Date();
+      dayDate.setDate(dayDate.getDate() - i);
+      const dateKey = toDateKey(dayDate);
+      const daySummary = groupedByDate.get(dateKey) || {
+        minutes: 0,
+        calories: 0,
+        workoutCount: 0,
+        activities: [],
+      };
+
+      const minsThatDay = Math.round(daySummary.minutes);
+      const caloriesThatDay = Math.round(daySummary.calories);
+      const uniqueActivities = Array.from(new Set(daySummary.activities));
+      let activityLevel = "rest";
+      if (minsThatDay >= 75) activityLevel = "high";
+      else if (minsThatDay >= 30) activityLevel = "medium";
+      else if (minsThatDay > 0) activityLevel = "light";
+
       chartData.push({
-        day: dayLabel,
+        day: days[dayDate.getDay()],
+        date: dateKey,
+        dateLabel: `${months[dayDate.getMonth()]} ${dayDate.getDate()}`,
         minutes: minsThatDay,
-        // Chuyển số phút thành phần trăm chiều cao cột (Giả sử 120 phút là 100% cột)
-        heightPercent: Math.min((minsThatDay / 120) * 100, 100) || 5 // mặc định 5% cho có vạch nhỏ
+        calories: caloriesThatDay,
+        workoutCount: daySummary.workoutCount,
+        activities: uniqueActivities,
+        activityLevel,
+        status: minsThatDay > 0 ? "Active" : "Rest",
+        // Giữ lại để tương thích UI cũ nếu cần
+        heightPercent: Math.min((minsThatDay / 120) * 100, 100) || 5,
       });
     }
 
@@ -383,4 +501,5 @@ module.exports = {
   getDailyRoutine,
   updateDailyRoutine,
   getHealthMetrics,
+  updateAvatar,
 };

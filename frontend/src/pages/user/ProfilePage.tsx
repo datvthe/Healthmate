@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import toast, { Toaster } from 'react-hot-toast';
@@ -15,6 +15,7 @@ interface Profile {
   goal?: 'muscle_gain' | 'fat_loss' | 'maintain';
   phone_number?: string;
   address?: string;
+  picture?: string;
 }
 
 interface UserResponse {
@@ -37,6 +38,8 @@ const Icon = ({ name, className = '' }: { name: string; className?: string }) =>
   <span className={`material-symbols-outlined ${className}`}>{name}</span>
 );
 
+const DEFAULT_AVATAR = 'https://www.svgrepo.com/show/5125/avatar.svg';
+
 // ─── Component ──────────────────────────────────────────────────────────────
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -49,6 +52,9 @@ const ProfilePage = () => {
   // States cho Edit Mode
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Profile>({});
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>('');
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   
   // Dữ liệu Today Plan (Lịch tập + Ăn uống thật)
   const [todayPlan, setTodayPlan] = useState<TodayEvent[]>([]);
@@ -86,7 +92,10 @@ const ProfilePage = () => {
         goal: data.profile?.goal || 'maintain',
         phone_number: data.profile?.phone_number || '',
         address: data.profile?.address || '',
+        picture: data.profile?.picture || '',
       });
+      setAvatarFile(null);
+      setAvatarPreview('');
     } catch {
       setError('Có lỗi xảy ra khi kết nối tới server.');
     } finally {
@@ -165,6 +174,8 @@ const ProfilePage = () => {
             const parsed = JSON.parse(localUser);
             setUser(parsed);
             setFormData(parsed.profile || {});
+            setAvatarFile(null);
+            setAvatarPreview('');
         }
         setLoading(false);
         loadTodayPlan();
@@ -179,6 +190,33 @@ const ProfilePage = () => {
     localStorage.removeItem('user');
     navigate('/login');
   };
+
+  const handleAvatarPick = (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui lòng chọn file ảnh hợp lệ.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Ảnh đại diện tối đa 5MB.');
+      return;
+    }
+
+    if (avatarPreview?.startsWith('blob:')) {
+      URL.revokeObjectURL(avatarPreview);
+    }
+
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
 
   // --- VALIDATION & SUBMIT ---
   const handleSaveProfile = async () => {
@@ -200,6 +238,33 @@ const ProfilePage = () => {
       }
 
       try {
+          // 1) Upload avatar trước (nếu có đổi)
+          if (avatarFile) {
+              const avatarBody = new FormData();
+              avatarBody.append('avatar', avatarFile);
+              const avatarRes = await fetch('https://healthmate-y9vt.onrender.com/api/users/me/avatar', {
+                method: 'PUT',
+                headers: { Authorization: `Bearer ${token}` },
+                body: avatarBody
+              });
+
+              const avatarData = await avatarRes.json();
+              if (!avatarRes.ok) {
+                return toast.error(avatarData.message || "Không thể cập nhật avatar.");
+              }
+
+              setFormData(prev => ({ ...prev, picture: avatarData.profile?.picture || prev.picture }));
+              setUser(prev => prev ? { ...prev, profile: avatarData.profile } : null);
+
+              const localUserStr = localStorage.getItem('user');
+              if (localUserStr) {
+                const localUser = JSON.parse(localUserStr);
+                localUser.profile = avatarData.profile;
+                localStorage.setItem('user', JSON.stringify(localUser));
+              }
+          }
+
+          // 2) Cập nhật các thông tin profile còn lại
           const res = await fetch('https://healthmate-y9vt.onrender.com/api/users/profile', {
               method: 'PUT',
               headers: { 
@@ -221,6 +286,9 @@ const ProfilePage = () => {
                   localUser.profile = data.profile;
                   localStorage.setItem('user', JSON.stringify(localUser));
               }
+              setAvatarFile(null);
+              if (avatarPreview?.startsWith('blob:')) URL.revokeObjectURL(avatarPreview);
+              setAvatarPreview('');
               setIsEditing(false);
           } else {
               const err = await res.json();
@@ -268,7 +336,15 @@ const ProfilePage = () => {
                       </button>
                   ) : (
                       <>
-                        <button onClick={() => setIsEditing(false)} className="h-10 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                        <button
+                          onClick={() => {
+                            setIsEditing(false);
+                            setAvatarFile(null);
+                            if (avatarPreview?.startsWith('blob:')) URL.revokeObjectURL(avatarPreview);
+                            setAvatarPreview('');
+                          }}
+                          className="h-10 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                        >
                             Hủy
                         </button>
                         <button onClick={handleSaveProfile} className="h-10 px-6 rounded-xl bg-primary text-slate-900 text-sm font-bold shadow-sm hover:brightness-105 transition-all flex items-center gap-2">
@@ -290,13 +366,13 @@ const ProfilePage = () => {
                 {/* ─── CỘT TRÁI (THÔNG TIN CÁ NHÂN) ─── */}
                 <div className="lg:col-span-2 flex flex-col gap-6">
                   
-                  {/* Card Thông tin cơ bản */}
+                  {/* Card Basic Information */}
                   <section className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
                     <div className="flex items-center gap-3 mb-6 relative z-10">
                       <div className="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center">
                           <span className="material-symbols-outlined">badge</span>
                       </div>
-                      <h2 className="text-xl font-bold text-slate-900 dark:text-white">Thông tin cơ bản</h2>
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-white">Basic Information</h2>
                     </div>
 
                     {error && (
@@ -307,8 +383,22 @@ const ProfilePage = () => {
 
                     <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 px-5 py-4 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
                         <div className="flex items-center gap-4">
-                           <div className="w-14 h-14 rounded-full bg-slate-200 overflow-hidden border-2 border-white shadow-sm flex-shrink-0">
-                               <img src="https://www.svgrepo.com/show/5125/avatar.svg" alt="avatar" className="w-full h-full object-cover" />
+                           <div className="relative w-14 h-14 rounded-full bg-slate-200 overflow-hidden border-2 border-white shadow-sm flex-shrink-0">
+                               <img
+                                 src={avatarPreview || user?.profile?.picture || DEFAULT_AVATAR}
+                                 alt="avatar"
+                                 className="w-full h-full object-cover"
+                               />
+                               {isEditing && (
+                                 <button
+                                   type="button"
+                                   onClick={() => avatarInputRef.current?.click()}
+                                   className="absolute -right-1 -bottom-1 w-6 h-6 rounded-full bg-primary text-slate-900 shadow-sm flex items-center justify-center hover:brightness-110 transition"
+                                   title="Đổi avatar"
+                                 >
+                                   <span className="material-symbols-outlined text-[14px]">photo_camera</span>
+                                 </button>
+                               )}
                            </div>
                            <div>
                                <p className="text-lg font-black text-slate-900 dark:text-white leading-tight">{user?.profile?.full_name || 'Người dùng'}</p>
@@ -319,6 +409,16 @@ const ProfilePage = () => {
                             {user?.role === 'admin' ? 'Admin' : 'Member'}
                         </div>
                     </div>
+
+                    {isEditing && (
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleAvatarPick(e.target.files?.[0])}
+                      />
+                    )}
 
                     {isEditing ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-10 animate-fade-in">
@@ -443,7 +543,7 @@ const ProfilePage = () => {
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded bg-primary/20 text-primary flex items-center justify-center"><Icon name="event_available" className="text-[18px]"/></div>
-                        <h2 className="text-base font-bold text-slate-900 dark:text-white">Lịch Hôm Nay</h2>
+                        <h2 className="text-base font-bold text-slate-900 dark:text-white">Today's Schedule</h2>
                       </div>
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{new Date().toLocaleDateString('vi-VN')}</span>
                     </div>

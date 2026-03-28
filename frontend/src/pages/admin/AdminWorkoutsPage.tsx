@@ -1,231 +1,511 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { getWorkouts, createWorkout } from "../../services/workoutService";
+import { useCallback, useEffect, useState } from "react";
+import { getWorkouts } from "../../services/workoutService";
 import type { Workout } from "../../services/workoutService";
 import { getCategories } from "../../services/categoryService";
 import type { Category } from "../../services/categoryService";
 import AdminLayout from "../../components/AdminLayout";
 import toast, { Toaster } from "react-hot-toast";
 
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'https://healthmate-y9vt.onrender.com' : 'https://healthmate-y9vt.onrender.com');
+const API_URL =
+  (import.meta.env.DEV
+    ? import.meta.env.VITE_API_URL_DEV || "http://localhost:8000"
+    : import.meta.env.VITE_API_URL || "https://healthmate-y9vt.onrender.com");
+
+type PlanExercise = {
+  title: string;
+  video_url: string;
+  duration_sec: number;
+  order: number;
+};
+
+type PlanDay = {
+  day_number: number;
+  day_title: string;
+  exercises: PlanExercise[];
+};
+
+type WorkoutForm = {
+  title: string;
+  cover_image: string;
+  category_id: string;
+  level: string;
+  access_tier: "free" | "premium";
+  calories_burned: number;
+  description: string;
+  program_days: PlanDay[];
+};
+
+const emptyExercise = (order: number): PlanExercise => ({
+  title: "",
+  video_url: "",
+  duration_sec: 60,
+  order,
+});
+
+const emptyDay = (day: number): PlanDay => ({
+  day_number: day,
+  day_title: `Day ${day}`,
+  exercises: [emptyExercise(1)],
+});
+
+const initialForm = (): WorkoutForm => ({
+  title: "",
+  cover_image: "",
+  category_id: "",
+  level: "beginner",
+  access_tier: "free",
+  calories_burned: 0,
+  description: "",
+  program_days: [emptyDay(1)],
+});
+
+const normalizeProgramDays = (days: PlanDay[]) =>
+  days
+    .map((day, dayIndex) => ({
+      day_number: dayIndex + 1,
+      day_title: day.day_title.trim() || `Day ${dayIndex + 1}`,
+      exercises: (day.exercises || [])
+        .map((ex, exIndex) => ({
+          title: ex.title.trim(),
+          video_url: ex.video_url.trim(),
+          duration_sec: Number(ex.duration_sec) || 60,
+          order: exIndex + 1,
+        }))
+        .filter((ex) => ex.title.length > 0),
+    }));
+
+const getProgramDaysFromWorkout = (workout: Workout): PlanDay[] => {
+  if (Array.isArray(workout.program_days) && workout.program_days.length > 0) {
+    return workout.program_days.map((day, dayIndex) => ({
+      day_number: Number(day.day_number) || dayIndex + 1,
+      day_title: day.day_title || `Day ${dayIndex + 1}`,
+      exercises:
+        Array.isArray(day.exercises) && day.exercises.length > 0
+          ? day.exercises.map((ex, exIndex) => ({
+              title: ex.title || "",
+              video_url: ex.video_url || "",
+              duration_sec: Number(ex.duration_sec) || 60,
+              order: Number(ex.order) || exIndex + 1,
+            }))
+          : [emptyExercise(1)],
+    }));
+  }
+
+  if (Array.isArray(workout.exercises) && workout.exercises.length > 0) {
+    return [
+      {
+        day_number: 1,
+        day_title: "Day 1",
+        exercises: workout.exercises.map((ex, exIndex) => ({
+          title: ex.title || "",
+          video_url: ex.video_url || "",
+          duration_sec: Number(ex.duration_sec) || 60,
+          order: Number(ex.order) || exIndex + 1,
+        })),
+      },
+    ];
+  }
+
+  return [emptyDay(1)];
+};
+
+const getCategoryName = (categoryId: Workout["category_id"]) =>
+  typeof categoryId === "object" ? categoryId?.name || "N/A" : "N/A";
+
+const getCategoryId = (categoryId: Workout["category_id"]) =>
+  typeof categoryId === "object" ? categoryId?._id || "" : categoryId || "";
+
+const getDayCount = (workout: Workout) =>
+  Array.isArray(workout.program_days) && workout.program_days.length > 0
+    ? workout.program_days.length
+    : 1;
+
+const getExerciseCount = (workout: Workout) => {
+  if (Array.isArray(workout.program_days) && workout.program_days.length > 0) {
+    return workout.program_days.reduce(
+      (sum, day) => sum + (Array.isArray(day.exercises) ? day.exercises.length : 0),
+      0,
+    );
+  }
+  return Array.isArray(workout.exercises) ? workout.exercises.length : 0;
+};
 
 const AdminWorkoutsPage = () => {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState("");
   const [level, setLevel] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [loading, setLoading] = useState(false);
-  
   const [showModal, setShowModal] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null); // Trạng thái Edit
-  
-  const [newWorkout, setNewWorkout] = useState<{
-    title: string; cover_image: string; category_id: string; level: string; calories_burned: number; description: string;
-    exercises: Array<{ title: string; video_url: string; duration_sec: number; order: number; }>;
-  }>({ title: "", cover_image: "", category_id: "", level: "beginner", calories_burned: 0, description: "", exercises: [] });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<WorkoutForm>(initialForm());
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [workoutsData, categoriesData] = await Promise.all([
-        getWorkouts({ search, level, categoryId }),
+        getWorkouts({ search, level, categoryId: categoryFilter }),
         getCategories(),
       ]);
-      setWorkouts(Array.isArray(workoutsData) ? workoutsData : (workoutsData?.data || []));
-      setCategories(Array.isArray(categoriesData) ? categoriesData : (categoriesData?.data || []));
-    } catch (error) { toast.error("Không thể tải dữ liệu."); setWorkouts([]); setCategories([]); } 
-    finally { setLoading(false); }
-  }, [search, level, categoryId]);
+      setWorkouts(Array.isArray(workoutsData) ? workoutsData : []);
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+    } catch (error) {
+      toast.error("Cannot load data.");
+    } finally {
+      setLoading(false);
+    }
+  }, [search, level, categoryFilter]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-  // HÀM SAVE CHUNG CHO CẢ TẠO MỚI VÀ CẬP NHẬT
-  const handleSaveWorkout = async () => {
-    if (!newWorkout.title || !newWorkout.category_id || !newWorkout.cover_image) return toast.error("Vui lòng điền đầy đủ Tên, Danh mục và Hình ảnh.");
-    
-    setIsSubmitting(true);
+  const addDay = () => {
+    setForm((prev) => ({
+      ...prev,
+      program_days: [...prev.program_days, emptyDay(prev.program_days.length + 1)],
+    }));
+  };
+
+  const removeDay = (dayIndex: number) => {
+    setForm((prev) => {
+      if (prev.program_days.length <= 1) return prev;
+      const nextDays = prev.program_days
+        .filter((_, idx) => idx !== dayIndex)
+        .map((day, idx) => ({
+          ...day,
+          day_number: idx + 1,
+          day_title: day.day_title || `Day ${idx + 1}`,
+          exercises: day.exercises.map((ex, exIndex) => ({ ...ex, order: exIndex + 1 })),
+        }));
+      return { ...prev, program_days: nextDays };
+    });
+  };
+
+  const addExercise = (dayIndex: number) => {
+    setForm((prev) => {
+      const days = [...prev.program_days];
+      const current = days[dayIndex].exercises;
+      days[dayIndex] = {
+        ...days[dayIndex],
+        exercises: [...current, emptyExercise(current.length + 1)],
+      };
+      return { ...prev, program_days: days };
+    });
+  };
+
+  const updateExercise = (
+    dayIndex: number,
+    exIndex: number,
+    key: keyof PlanExercise,
+    value: string | number,
+  ) => {
+    setForm((prev) => {
+      const days = [...prev.program_days];
+      const exercises = [...days[dayIndex].exercises];
+      exercises[exIndex] = { ...exercises[exIndex], [key]: value };
+      days[dayIndex] = { ...days[dayIndex], exercises };
+      return { ...prev, program_days: days };
+    });
+  };
+
+  const removeExercise = (dayIndex: number, exIndex: number) => {
+    setForm((prev) => {
+      const days = [...prev.program_days];
+      const nextExercises = days[dayIndex].exercises.filter((_, idx) => idx !== exIndex);
+      days[dayIndex] = {
+        ...days[dayIndex],
+        exercises:
+          nextExercises.length > 0
+            ? nextExercises.map((ex, idx) => ({ ...ex, order: idx + 1 }))
+            : [emptyExercise(1)],
+      };
+      return { ...prev, program_days: days };
+    });
+  };
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(initialForm());
+    setShowModal(true);
+  };
+
+  const openEdit = (workout: Workout) => {
+    setEditingId(workout._id);
+    setForm({
+      title: workout.title || "",
+      cover_image: workout.cover_image || "",
+      category_id: getCategoryId(workout.category_id),
+      level: workout.level || "beginner",
+      access_tier: workout.access_tier || "free",
+      calories_burned: Number(workout.calories_burned) || 0,
+      description: workout.description || "",
+      program_days: getProgramDaysFromWorkout(workout),
+    });
+    setShowModal(true);
+  };
+
+  const saveWorkout = async () => {
+    if (!form.title.trim() || !form.cover_image.trim() || !form.category_id) {
+      toast.error("Please enter roadmap title, cover image, and category.");
+      return;
+    }
+
+    const days = normalizeProgramDays(form.program_days);
+    if (days.length === 0) {
+      toast.error("At least one day must include valid exercises.");
+      return;
+    }
+
+    setSaving(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       const url = editingId ? `${API_URL}/api/workouts/${editingId}` : `${API_URL}/api/workouts`;
-      const method = editingId ? 'PUT' : 'POST';
+      const method = editingId ? "PUT" : "POST";
+      const payload = {
+        ...form,
+        title: form.title.trim(),
+        description: form.description.trim(),
+        cover_image: form.cover_image.trim(),
+        access_tier: form.access_tier || "free",
+        program_days: days,
+        exercises: days[0]?.exercises || [],
+      };
 
       const res = await fetch(url, {
-          method,
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(newWorkout)
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
       });
 
-      if(res.ok) {
-          toast.success(editingId ? "Cập nhật bài tập thành công!" : "Tạo bài tập mới thành công!");
-          setShowModal(false); setEditingId(null);
-          setNewWorkout({ title: "", cover_image: "", category_id: "", level: "beginner", calories_burned: 0, description: "", exercises: [] });
-          fetchData();
-      } else { toast.error("Lỗi lưu bài tập."); }
-    } catch (error) { toast.error("Lỗi mạng."); } 
-    finally { setIsSubmitting(false); }
-  };
+      if (!res.ok) {
+        toast.error("Failed to save roadmap.");
+        return;
+      }
 
-  const openEditModal = (w: any) => {
-      setEditingId(w._id);
-      setNewWorkout({
-          title: w.title, cover_image: w.cover_image, category_id: w.category_id?._id || w.category_id,
-          level: w.level, calories_burned: w.calories_burned, description: w.description, exercises: w.exercises || []
-      });
-      setShowModal(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if(window.confirm('CẢNH BÁO: Xóa vĩnh viễn bài tập này?')) {
-        try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/api/workouts/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-            if (res.ok) {
-                setWorkouts(prev => (prev || []).filter(w => w._id !== id));
-                toast.success("Đã xóa bài tập.");
-            } else { toast.error("Lỗi khi xóa bài tập."); }
-        } catch (error) { toast.error("Lỗi kết nối."); }
+      toast.success(editingId ? "Roadmap updated successfully." : "Roadmap created successfully.");
+      setShowModal(false);
+      setForm(initialForm());
+      setEditingId(null);
+      await fetchData();
+    } catch (error) {
+      toast.error("Network error.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const addExercise = () => { setNewWorkout({ ...newWorkout, exercises: [ ...(newWorkout.exercises || []), { title: "", video_url: "", duration_sec: 60, order: (newWorkout.exercises || []).length + 1 } ] }); };
-  const removeExercise = (index: number) => { const updated = [...(newWorkout.exercises || [])]; updated.splice(index, 1); updated.forEach((ex, i) => { ex.order = i + 1; }); setNewWorkout({ ...newWorkout, exercises: updated }); };
+  const deleteWorkout = async (id: string) => {
+    if (!window.confirm("Delete this roadmap?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/workouts/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        toast.error("Delete failed.");
+        return;
+      }
+      setWorkouts((prev) => prev.filter((w) => w._id !== id));
+      toast.success("Roadmap deleted.");
+    } catch (error) {
+      toast.error("Network error.");
+    }
+  };
 
   return (
     <AdminLayout>
       <Toaster position="top-right" />
-      <div className="max-w-6xl mx-auto w-full pb-10 animate-fade-in">
-        
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
-            <div>
-                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Quản lý Workouts</h1>
-                <p className="text-slate-500 dark:text-slate-400">Thêm, sửa, xóa các bài tập và lộ trình tập luyện.</p>
-            </div>
-            <button onClick={() => { setEditingId(null); setNewWorkout({ title: "", cover_image: "", category_id: "", level: "beginner", calories_burned: 0, description: "", exercises: [] }); setShowModal(true); }} className="bg-primary text-slate-900 px-5 py-2.5 rounded-xl font-bold shadow-sm hover:brightness-110 transition-all flex items-center gap-2">
-                <span className="material-symbols-outlined text-[20px]">add</span> Thêm Bài Tập
-            </button>
+      <div className="max-w-6xl mx-auto w-full pb-10">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 dark:text-white">Workout Roadmap</h1>
+            <p className="text-slate-500 text-sm mt-1">
+              Create multi-day workout roadmaps instead of a single exercise.
+            </p>
+          </div>
+          <button onClick={openCreate} className="bg-primary text-slate-900 font-bold px-4 py-2 rounded-lg">
+            Add roadmap
+          </button>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-800 mb-6 flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
-                <input type="text" placeholder="Tìm kiếm bài tập..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:border-primary dark:text-white transition-colors" />
-            </div>
-            <select value={level} onChange={(e) => setLevel(e.target.value)} className="w-full md:w-48 px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:border-primary dark:text-white transition-colors">
-                <option value="">Tất cả cấp độ</option>
-                <option value="beginner">Người mới</option>
-                <option value="intermediate">Trung bình</option>
-                <option value="advanced">Nâng cao</option>
-            </select>
-            <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="w-full md:w-48 px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:border-primary dark:text-white transition-colors">
-                <option value="">Tất cả danh mục</option>
-                {(categories || []).map((cat) => <option key={cat._id} value={cat._id}>{cat.name}</option>)}
-            </select>
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 mb-4 grid grid-cols-1 md:grid-cols-3 gap-2">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by roadmap name..."
+            className="border rounded p-2 bg-transparent"
+          />
+          <select
+            value={level}
+            onChange={(e) => setLevel(e.target.value)}
+            className="border rounded p-2 bg-transparent"
+          >
+            <option value="">All levels</option>
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="advanced">Advanced</option>
+          </select>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="border rounded p-2 bg-transparent"
+          >
+            <option value="">All categories</option>
+            {categories.map((cat) => (
+              <option key={cat._id} value={cat._id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                        <tr>
-                            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Bài tập</th>
-                            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Danh mục</th>
-                            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cấp độ</th>
-                            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Calo/Thời gian</th>
-                            <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {loading ? (
-                            <tr><td colSpan={5} className="p-8 text-center text-slate-500"><span className="material-symbols-outlined animate-spin text-3xl">progress_activity</span></td></tr>
-                        ) : (!workouts || workouts.length === 0) ? (
-                            <tr><td colSpan={5} className="p-8 text-center text-slate-500 font-medium">Không tìm thấy bài tập nào.</td></tr>
-                        ) : (
-                            workouts.map((w: any) => (
-                                <tr key={w._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
-                                    <td className="p-4">
-                                        <div className="flex items-center gap-3">
-                                            <img src={w.cover_image || 'https://placehold.co/100x100?text=No+Image'} alt={w.title} className="w-12 h-12 rounded-lg object-cover border border-slate-200 dark:border-slate-700" />
-                                            <div>
-                                                <h3 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-1">{w.title}</h3>
-                                                <p className="text-[11px] text-slate-500 line-clamp-1 max-w-[200px] mt-0.5">{w.description}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="p-4"><span className="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-md">{w.category_id?.name || 'N/A'}</span></td>
-                                    <td className="p-4"><span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider ${w.level === 'advanced' ? 'bg-rose-100 text-rose-600' : w.level === 'intermediate' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>{w.level}</span></td>
-                                    <td className="p-4">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="text-xs font-bold text-orange-500 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">local_fire_department</span> {w.calories_burned} kcal</span>
-                                            <span className="text-xs font-medium text-slate-500 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">timer</span> {w.exercises?.length || 0} bài</span>
-                                        </div>
-                                    </td>
-                                    <td className="p-4 text-right">
-                                        <button onClick={() => openEditModal(w)} className="p-1.5 mr-2 text-blue-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded transition-colors" title="Sửa">
-                                            <span className="material-symbols-outlined text-[20px]">edit</span>
-                                        </button>
-                                        <button onClick={() => handleDelete(w._id)} className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-colors" title="Xóa">
-                                            <span className="material-symbols-outlined text-[20px]">delete</span>
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 dark:bg-slate-800/50">
+              <tr>
+                <th className="p-3 text-left">Roadmap</th>
+                <th className="p-3 text-left">Category</th>
+                <th className="p-3 text-left">Level</th>
+                <th className="p-3 text-left">Type</th>
+                <th className="p-3 text-left">Days / Exercises</th>
+                <th className="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td className="p-4" colSpan={6}>Loading...</td></tr>
+              ) : workouts.length === 0 ? (
+                <tr><td className="p-4" colSpan={6}>No data yet.</td></tr>
+              ) : (
+                workouts.map((workout) => (
+                  <tr key={workout._id} className="border-t border-slate-100 dark:border-slate-800">
+                    <td className="p-3 font-semibold">{workout.title}</td>
+                    <td className="p-3">{getCategoryName(workout.category_id)}</td>
+                    <td className="p-3">{workout.level}</td>
+                    <td className="p-3">
+                      <span className={workout.access_tier === "premium" ? "text-amber-600 font-semibold" : "text-emerald-600 font-semibold"}>
+                        {workout.access_tier === "premium" ? "Paid" : "Free"}
+                      </span>
+                    </td>
+                    <td className="p-3">{getDayCount(workout)} days / {getExerciseCount(workout)} exercises</td>
+                    <td className="p-3 text-right space-x-2">
+                      <button onClick={() => openEdit(workout)} className="text-blue-500">Edit</button>
+                      <button onClick={() => deleteWorkout(workout._id)} className="text-red-500">Delete</button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
 
         {showModal && (
-            <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
-                <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl my-8 shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
-                    <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900 sticky top-0 z-10">
-                        <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2"><span className="material-symbols-outlined text-primary">{editingId ? 'edit' : 'fitness_center'}</span> {editingId ? 'Sửa bài tập' : 'Thêm Workout Mới'}</h2>
-                        <button onClick={() => setShowModal(false)} className="text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 p-1.5 rounded-lg transition-colors"><span className="material-symbols-outlined">close</span></button>
-                    </div>
-                    
-                    <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar max-h-[70vh]">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Tên bài tập</label><input type="text" value={newWorkout.title} onChange={(e) => setNewWorkout({ ...newWorkout, title: e.target.value })} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-primary dark:text-white" /></div>
-                            <div><label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Link ảnh bìa</label><input type="text" value={newWorkout.cover_image} onChange={(e) => setNewWorkout({ ...newWorkout, cover_image: e.target.value })} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-primary dark:text-white" /></div>
-                            <div><label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Danh mục</label><select value={newWorkout.category_id} onChange={(e) => setNewWorkout({ ...newWorkout, category_id: e.target.value })} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-primary dark:text-white"><option value="">Chọn danh mục</option>{(categories || []).map((cat) => <option key={cat._id} value={cat._id}>{cat.name}</option>)}</select></div>
-                            <div><label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Cấp độ</label><select value={newWorkout.level} onChange={(e) => setNewWorkout({ ...newWorkout, level: e.target.value })} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-primary dark:text-white"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></div>
-                            <div><label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Calo Tiêu thụ (Kcal)</label><input type="number" min="1" value={newWorkout.calories_burned} onChange={(e) => setNewWorkout({ ...newWorkout, calories_burned: Number(e.target.value) })} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-primary dark:text-white" /></div>
-                            <div className="md:col-span-2"><label className="block text-[11px] font-bold text-slate-500 uppercase mb-1.5">Mô tả chi tiết</label><textarea value={newWorkout.description} onChange={(e) => setNewWorkout({ ...newWorkout, description: e.target.value })} rows={2} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm outline-none focus:border-primary dark:text-white resize-none" /></div>
-                        </div>
+          <div className="fixed inset-0 z-50 bg-black/50 p-4 overflow-y-auto">
+            <div className="max-w-4xl mx-auto bg-white dark:bg-slate-900 rounded-xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">{editingId ? "Edit roadmap" : "Add roadmap"}</h2>
+                <button onClick={() => setShowModal(false)} className="text-slate-500">Close</button>
+              </div>
 
-                        <div className="border-t border-slate-100 dark:border-slate-800 pt-5 mt-2">
-                            <div className="flex items-center justify-between mb-4"><h3 className="font-bold text-sm dark:text-white">Danh sách Động tác ({(newWorkout.exercises || []).length})</h3><button onClick={addExercise} className="text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded transition-colors">+ Thêm động tác</button></div>
-                            <div className="space-y-3">
-                                {(newWorkout.exercises || []).map((ex, index) => (
-                                    <div key={index} className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-4 rounded-xl relative">
-                                        <button onClick={() => removeExercise(index)} className="absolute top-2 right-2 text-slate-400 hover:text-red-500 transition-colors"><span className="material-symbols-outlined text-[18px]">close</span></button>
-                                        <p className="text-[10px] font-black text-slate-400 mb-2 uppercase">Động tác {index + 1}</p>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            <input type="text" placeholder="Tên động tác" value={ex.title} onChange={(e) => { const updated = [...(newWorkout.exercises || [])]; updated[index].title = e.target.value; setNewWorkout({ ...newWorkout, exercises: updated }); }} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-3 py-2 text-sm outline-none focus:border-primary dark:text-white" />
-                                            <input type="text" placeholder="Link Video (YouTube/MP4)" value={ex.video_url} onChange={(e) => { const updated = [...(newWorkout.exercises || [])]; updated[index].video_url = e.target.value; setNewWorkout({ ...newWorkout, exercises: updated }); }} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-3 py-2 text-sm outline-none focus:border-primary dark:text-white" />
-                                            <div className="md:col-span-2 flex items-center gap-3">
-                                                <label className="text-xs text-slate-500 font-bold whitespace-nowrap">Thời gian (giây):</label>
-                                                <input type="number" min="1" value={ex.duration_sec} onChange={(e) => { const updated = [...(newWorkout.exercises || [])]; updated[index].duration_sec = Number(e.target.value); setNewWorkout({ ...newWorkout, exercises: updated }); }} className="w-24 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-3 py-1.5 text-sm outline-none focus:border-primary dark:text-white text-center" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="Roadmap title" className="border rounded p-2 bg-transparent" />
+                <input value={form.cover_image} onChange={(e) => setForm((p) => ({ ...p, cover_image: e.target.value }))} placeholder="Cover image URL" className="border rounded p-2 bg-transparent" />
+                <select value={form.category_id} onChange={(e) => setForm((p) => ({ ...p, category_id: e.target.value }))} className="border rounded p-2 bg-transparent">
+                  <option value="">Select category</option>
+                  {categories.map((cat) => <option key={cat._id} value={cat._id}>{cat.name}</option>)}
+                </select>
+                <select value={form.level} onChange={(e) => setForm((p) => ({ ...p, level: e.target.value }))} className="border rounded p-2 bg-transparent">
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+                <select value={form.access_tier} onChange={(e) => setForm((p) => ({ ...p, access_tier: e.target.value as "free" | "premium" }))} className="border rounded p-2 bg-transparent">
+                  <option value="free">Free workout</option>
+                  <option value="premium">Paid workout</option>
+                </select>
+                <input type="number" value={form.calories_burned} onChange={(e) => setForm((p) => ({ ...p, calories_burned: Number(e.target.value) }))} placeholder="Kcal/day" className="border rounded p-2 bg-transparent" />
+                <input value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="Description" className="border rounded p-2 bg-transparent" />
+              </div>
 
-                    <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50 dark:bg-slate-900 mt-auto">
-                        <button onClick={() => setShowModal(false)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors">Hủy</button>
-                        <button onClick={handleSaveWorkout} disabled={isSubmitting} className="px-6 py-2.5 bg-primary text-slate-900 text-sm font-bold rounded-xl hover:brightness-110 shadow-sm transition-all flex items-center gap-2">
-                            {isSubmitting ? <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span> : null}
-                            Lưu bài tập
-                        </button>
-                    </div>
+              <div className="border-t pt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold">Daily roadmap structure</h3>
+                  <button onClick={addDay} className="text-primary font-semibold">+ Add day</button>
                 </div>
-            </div>
-        )}
 
+                {form.program_days.map((day, dayIndex) => (
+                  <div key={dayIndex} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">Day {day.day_number}</span>
+                      <input
+                        value={day.day_title}
+                        onChange={(e) =>
+                          setForm((prev) => {
+                            const days = [...prev.program_days];
+                            days[dayIndex] = { ...days[dayIndex], day_title: e.target.value };
+                            return { ...prev, program_days: days };
+                          })
+                        }
+                        className="border rounded p-1 flex-1 bg-transparent"
+                      />
+                      <button onClick={() => removeDay(dayIndex)} className="text-red-500">Delete day</button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {day.exercises.map((exercise, exIndex) => (
+                        <div key={exIndex} className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                          <input
+                            value={exercise.title}
+                            onChange={(e) => updateExercise(dayIndex, exIndex, "title", e.target.value)}
+                            placeholder="Exercise name"
+                            className="border rounded p-2 md:col-span-4 bg-transparent"
+                          />
+                          <input
+                            value={exercise.video_url}
+                            onChange={(e) => updateExercise(dayIndex, exIndex, "video_url", e.target.value)}
+                            placeholder="Link video"
+                            className="border rounded p-2 md:col-span-5 bg-transparent"
+                          />
+                          <input
+                            type="number"
+                            value={exercise.duration_sec}
+                            onChange={(e) =>
+                              updateExercise(dayIndex, exIndex, "duration_sec", Number(e.target.value))
+                            }
+                            className="border rounded p-2 md:col-span-2 bg-transparent"
+                          />
+                          <button onClick={() => removeExercise(dayIndex, exIndex)} className="text-red-500 md:col-span-1">
+                            Delete
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button onClick={() => addExercise(dayIndex)} className="text-primary text-sm font-semibold">
+                      + Add exercise
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded border">
+                  Cancel
+                </button>
+                <button onClick={saveWorkout} disabled={saving} className="px-4 py-2 rounded bg-primary text-slate-900 font-bold">
+                  {saving ? "Saving..." : "Save roadmap"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

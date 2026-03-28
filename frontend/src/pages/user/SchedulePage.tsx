@@ -19,6 +19,7 @@ const Icon = ({ name, className = '' }: { name: string; className?: string }) =>
 const SchedulePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const todayStr = getLocalDateString(new Date());
 
   const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
@@ -89,6 +90,10 @@ const SchedulePage = () => {
 
   // --- Modal Hành Động ---
   const openEditModal = (dateStr: string, index: number, event: any) => {
+    if (dateStr > todayStr) {
+      alert("Future days are view-only. You cannot edit this workout yet.");
+      return;
+    }
     setEditStartTime(event.startTime);
     setEditEndTime(event.endTime);
     setEditModal({ isOpen: true, dateStr, index, event });
@@ -98,6 +103,10 @@ const SchedulePage = () => {
 
   const saveEdit = async () => {
     if (!editModal) return;
+    if (editModal.dateStr > todayStr) {
+      alert("Future days are view-only.");
+      return;
+    }
     if (editStartTime >= editEndTime) {
       alert("Thời gian kết thúc phải lớn hơn thời gian bắt đầu!");
       return;
@@ -118,7 +127,11 @@ const SchedulePage = () => {
     closeEditModal();
 
     try {
-      await updateDailyRoutine({ date: dateStr, exercises: dayExercises });
+      await updateDailyRoutine({
+        date: dateStr,
+        exercises: dayExercises,
+        source: "manual_edit",
+      });
     } catch (err) {
       alert("Lỗi khi lưu. Vui lòng thử lại.");
     }
@@ -126,6 +139,10 @@ const SchedulePage = () => {
 
   const deleteEvent = async () => {
     if (!editModal || !window.confirm("Bạn có chắc chắn muốn xóa bài tập này khỏi lịch?")) return;
+    if (editModal.dateStr > todayStr) {
+      alert("Future days are view-only.");
+      return;
+    }
 
     const { dateStr, index } = editModal;
     const dayExercises = [...(routine[dateStr] || [])];
@@ -135,7 +152,11 @@ const SchedulePage = () => {
     closeEditModal();
 
     try {
-      await updateDailyRoutine({ date: dateStr, exercises: dayExercises });
+      await updateDailyRoutine({
+        date: dateStr,
+        exercises: dayExercises,
+        source: "manual_edit",
+      });
     } catch (err) {
       alert("Lỗi khi xóa.");
     }
@@ -218,14 +239,20 @@ const SchedulePage = () => {
                     <div className="grid grid-cols-7 flex-1 min-h-[500px]">
                       {weekDays.map(({ dateStr, isToday }) => {
                         const dayEvents = routine[dateStr] || [];
+                        const isFutureDate = dateStr > todayStr;
                         
                         return (
                         <div
                           key={dateStr}
                           className={`border-r border-slate-200 dark:border-slate-800 last:border-r-0 p-2 space-y-2 relative transition-colors ${
-                            isToday ? 'bg-primary/5' : 'bg-transparent'
-                          }`}
+                            isToday ? "bg-primary/5" : "bg-transparent"
+                          } ${isFutureDate ? "opacity-80" : ""}`}
                         >
+                          {isFutureDate && (
+                            <div className="text-[10px] font-bold text-slate-400 mb-2">
+                              View only
+                            </div>
+                          )}
                           {loading ? (
                              <div className="text-xs text-slate-400 text-center mt-4">Loading...</div>
                           ) : dayEvents.length === 0 ? (
@@ -234,8 +261,10 @@ const SchedulePage = () => {
                             dayEvents.map((ev: any, i: number) => (
                               <div
                                 key={i}
-                                onClick={() => openEditModal(dateStr, i, ev)}
-                                className={`bg-blue-50 dark:bg-blue-900/20 border-l-4 border-primary p-2 rounded shadow-sm hover:shadow-md cursor-pointer transition-all`}
+                                onClick={() => !isFutureDate && openEditModal(dateStr, i, ev)}
+                                className={`bg-blue-50 dark:bg-blue-900/20 border-l-4 border-primary p-2 rounded shadow-sm transition-all ${
+                                  isFutureDate ? "cursor-not-allowed" : "hover:shadow-md cursor-pointer"
+                                }`}
                               >
                                 <p className={`text-[10px] font-mono mb-0.5 text-blue-500 dark:text-blue-400 font-bold`}>{ev.startTime} - {ev.endTime}</p>
                                 <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate" title={ev.name}>{ev.name}</h4>
@@ -262,7 +291,7 @@ const SchedulePage = () => {
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
               <div className="p-5 border-b border-slate-100 dark:border-slate-800">
-                  <h3 className="text-lg font-black text-slate-900 dark:text-white mb-1">Chỉnh sửa Lịch tập</h3>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white mb-1">Edit Workout Schedule</h3>
                   <p className="text-xs font-bold text-primary truncate">{editModal.event.name}</p>
               </div>
               

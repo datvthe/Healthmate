@@ -121,12 +121,12 @@ const UserManagement: React.FC = () => {
       <div className="max-w-6xl mx-auto w-full pb-10">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
             <div>
-                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-1">Quản lý Người dùng</h1>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Xem, tìm kiếm và phân quyền các tài khoản trong hệ thống.</p>
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-1">User Management</h1>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Browse, search, and manage account roles across the system.</p>
             </div>
             <button onClick={() => { setModalMode('create'); setFormData({ email: '', password: '', role: 'user', status: 'active', profile: { full_name: '' } }); setShowModal(true); }} 
                     className="flex items-center gap-2 px-5 py-2.5 bg-primary text-slate-900 rounded-xl text-sm font-bold shadow-sm hover:brightness-110 transition-all">
-                <span className="material-symbols-outlined text-[18px]">person_add</span> Thêm người dùng
+                <span className="material-symbols-outlined text-[18px]">person_add</span> Add User
             </button>
         </div>
 
@@ -134,21 +134,21 @@ const UserManagement: React.FC = () => {
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200 dark:border-slate-800 mb-6 flex flex-wrap gap-4">
             <div className="flex-1 min-w-[250px] relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
-                <input type="text" placeholder="Tìm theo tên hoặc email..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                <input type="text" placeholder="Search by name or email..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-primary dark:text-white" />
             </div>
             <select value={filterRole} onChange={e => setFilterRole(e.target.value as any)}
                 className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary dark:text-white">
-                <option value="all">Tất cả vai trò</option>
+                <option value="all">All roles</option>
                 <option value="user">User</option>
                 <option value="admin">Admin</option>
             </select>
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)}
                 className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary dark:text-white">
-                <option value="all">Tất cả trạng thái</option>
-                <option value="active">Hoạt động (Active)</option>
-                <option value="inactive">Chưa kích hoạt (Inactive)</option>
-                <option value="banned">Bị khóa (Banned)</option>
+                <option value="all">All statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="banned">Banned</option>
             </select>
         </div>
 
@@ -158,17 +158,17 @@ const UserManagement: React.FC = () => {
                 <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-black text-slate-500 dark:text-slate-400">
                         <tr>
-                            <th className="p-4">Người dùng</th>
-                            <th className="p-4">Vai trò</th>
-                            <th className="p-4">Trạng thái</th>
-                            <th className="p-4 text-right">Thao tác</th>
+                            <th className="p-4">User</th>
+                            <th className="p-4">Role</th>
+                            <th className="p-4">Status</th>
+                            <th className="p-4 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 text-sm">
                         {loading ? (
-                            <tr><td colSpan={4} className="p-10 text-center text-slate-500 font-medium animate-pulse">Đang tải dữ liệu...</td></tr>
+                            <tr><td colSpan={4} className="p-10 text-center text-slate-500 font-medium animate-pulse">Loading data...</td></tr>
                         ) : filteredUsers.length === 0 ? (
-                            <tr><td colSpan={4} className="p-10 text-center text-slate-500 font-medium">Không tìm thấy người dùng nào.</td></tr>
+                            <tr><td colSpan={4} className="p-10 text-center text-slate-500 font-medium">No users found.</td></tr>
                         ) : (
                             filteredUsers.map(u => (
                                 <tr key={u.id || u._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
@@ -203,7 +203,7 @@ const UserManagement: React.FC = () => {
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-fade-in border border-slate-200 dark:border-slate-700">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2"><span className="material-symbols-outlined text-primary">{modalMode === 'create' ? 'person_add' : 'edit'}</span>{modalMode === 'create' ? 'Thêm Người dùng' : 'Chỉnh sửa Tài khoản'}</h2>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2"><span className="material-symbols-outlined text-primary">{modalMode === 'create' ? 'person_add' : 'edit'}</span>{modalMode === 'create' ? 'Add User' : 'Edit Account'}</h2>
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors"><span className="material-symbols-outlined">close</span></button>
             </div>
             <form onSubmit={handleSave} className="p-6 space-y-4">

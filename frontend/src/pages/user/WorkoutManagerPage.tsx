@@ -219,13 +219,13 @@ const WorkoutManagerPage: React.FC = () => {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white">🏋️ Workout Manager</h1>
-            <p className="text-slate-600 dark:text-slate-400">Quản lý và theo dõi buổi tập của bạn</p>
+            <p className="text-slate-600 dark:text-slate-400">Manage and track your workouts</p>
           </div>
           <button
             onClick={() => navigate('/dashboard')}
             className="px-4 py-2 bg-primary text-slate-900 rounded-lg hover:opacity-90 font-medium"
           >
-            📊 Xem Dashboard
+            📊 View Dashboard
           </button>
         </div>
 
@@ -239,19 +239,19 @@ const WorkoutManagerPage: React.FC = () => {
           {/* Add Workout Log */}
           <div className="bg-white dark:bg-background-dark rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">➕ Thêm Workout Log</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">➕ Add Workout Log</h2>
               <button
                 onClick={() => setShowCreateWorkout(!showCreateWorkout)}
                 className="text-sm bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600"
               >
-                {showCreateWorkout ? '📋 Log Workout' : '➕ Tạo Workout'}
+                {showCreateWorkout ? '📋 Log Workout' : '➕ Create Workout'}
               </button>
             </div>
             
             {showCreateWorkout ? (
               // Create New Workout Form
               <form onSubmit={handleCreateWorkout} className="space-y-4 mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-4">🏋️ Tạo Workout Mới</h3>
+                <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-4">🏋️ Create New Workout</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -429,7 +429,7 @@ const WorkoutManagerPage: React.FC = () => {
 
           {/* Recent Workout Logs */}
           <div className="bg-white dark:bg-background-dark rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">📋 Lịch Sử Gần Đây</h2>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">📋 Recent History</h2>
             
             {workoutLogs.length === 0 ? (
               <div className="text-center py-8 text-slate-500">
@@ -465,7 +465,7 @@ const WorkoutManagerPage: React.FC = () => {
                       <button
                         onClick={() => handleDeleteLog(log._id)}
                         className="text-red-500 hover:text-red-700 p-2"
-                        title="Xóa workout"
+                        title="Delete workout"
                       >
                         <span className="material-symbols-outlined">delete</span>
                       </button>
@@ -479,7 +479,7 @@ const WorkoutManagerPage: React.FC = () => {
 
         {/* Quick Stats */}
         <div className="mt-8 bg-white dark:bg-background-dark rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">📊 Thống Kê Nhanh</h2>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">📊 Quick Stats</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
               <p className="text-2xl font-bold text-primary">{workoutLogs.length}</p>

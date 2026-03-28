@@ -1,9 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import Layout from '../../components/Layout';
 import ConfirmModal from '../../components/confirm-modal';
 import { API_URL } from '../../config';
+import {
+  calculateCalorieTargetFromProfile,
+  getAgeFromBirthDate,
+  getBmiCategoryLabel,
+  getGoalLabel,
+  normalizeGoalType,
+} from '../../utils/nutritionTargets';
 
 interface MealItem {
   _id: string;
@@ -49,10 +56,10 @@ function offsetDate(dateStr: string, days: number): string {
 }
 
 const MEAL_SLOTS = [
-  { key: 'breakfast', label: 'Bữa sáng', time: '06:00–09:00', icon: '🌅', color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800', dot: 'bg-amber-400', badge: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' },
-  { key: 'lunch',     label: 'Bữa trưa', time: '11:00–13:00', icon: '☀️', color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',   dot: 'bg-blue-400',  badge: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
-  { key: 'dinner',    label: 'Bữa tối',  time: '17:00–20:00', icon: '🌙', color: 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800', dot: 'bg-violet-400', badge: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300' },
-  { key: 'snack',     label: 'Bữa phụ',  time: 'Khác',        icon: '🍎', color: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',  dot: 'bg-green-400', badge: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
+  { key: 'breakfast', label: 'Breakfast', time: '06:00–09:00', icon: '🌅', color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800', dot: 'bg-amber-400', badge: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' },
+  { key: 'lunch',     label: 'Lunch', time: '11:00–13:00', icon: '☀️', color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',   dot: 'bg-blue-400',  badge: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
+  { key: 'dinner',    label: 'Dinner',  time: '17:00–20:00', icon: '🌙', color: 'bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800', dot: 'bg-violet-400', badge: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300' },
+  { key: 'snack',     label: 'Snack',  time: 'Other',        icon: '🍎', color: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',  dot: 'bg-green-400', badge: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
 ] as const;
 type MealSlot = typeof MEAL_SLOTS[number]['key'];
 
@@ -90,6 +97,8 @@ const MealPlannerPage = () => {
   const [calorieGoal, setCalorieGoal] = useState(2000);
   const [userGoalType, setUserGoalType] = useState('maintain');
   const [userCurrentWeight, setUserCurrentWeight] = useState(70);
+  const [bmiValue, setBmiValue] = useState<number>(0);
+  const [bmiCategory, setBmiCategory] = useState('normal');
 
   const [aiRecs, setAiRecs] = useState<any>({});
   const [aiSuggestions, setAiSuggestions] = useState<Food[]>([]); // 🔴 THÊM STATE SUGGESTIONS CHO MODAL
@@ -110,38 +119,45 @@ const MealPlannerPage = () => {
 
   const dateInputRef = useRef<HTMLInputElement>(null);
   const getAuthHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' });
+  const getAiCacheKey = (date: string) => {
+    const userId = JSON.parse(localStorage.getItem('user') || '{}')?._id || 'self';
+    return `hm_ai_meal_rec_v2_${userId}_${date}`;
+  };
 
   useEffect(() => {
     const autoCalculateTarget = async () => {
-        let goalType = 'maintain';
-        try {
-            const res = await fetch(`${API_URL}/api/goals/my-goal`, { headers: getAuthHeaders() });
-            if(res.ok) {
-                const goalData = await res.json();
-                if(goalData?.goal_type) goalType = goalData.goal_type;
-            }
-        } catch (e) {}
+      let activeGoalType = '';
+      try {
+        const res = await fetch(`${API_URL}/api/goals/my-goal`, { headers: getAuthHeaders() });
+        if (res.ok) {
+          const goalData = await res.json();
+          if (goalData?.goal_type) activeGoalType = String(goalData.goal_type);
+        }
+      } catch (e) {}
 
-        const checkin = JSON.parse(localStorage.getItem('latestBodyCheckin') || "{}");
-        const userStr = localStorage.getItem('user');
-        const user = userStr ? JSON.parse(userStr) : {};
-        
-        const weight = checkin.weight || user.profile?.weight_kg || 70;
-        const height = checkin.height || user.profile?.height_cm || 170;
-        const gender = user.profile?.gender || 'male';
-        const age = 25; 
-        
-        const bmr = gender === 'male' 
-            ? (10 * weight + 6.25 * height - 5 * age + 5) 
-            : (10 * weight + 6.25 * height - 5 * age - 161);
-        let targetCal = bmr * 1.55;
-        
-        if (goalType === 'fat_loss') targetCal -= 500;
-        else if (goalType === 'muscle_gain') targetCal += 300;
+      const checkin = JSON.parse(localStorage.getItem('latestBodyCheckin') || "{}");
+      const userStr = localStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : {};
 
-        setCalorieGoal(Math.round(targetCal));
-        setUserGoalType(goalType);
-        setUserCurrentWeight(weight);
+      const weight = checkin.weight || user.profile?.weight_kg || 70;
+      const height = checkin.height || user.profile?.height_cm || 170;
+      const gender = user.profile?.gender || 'male';
+      const age = getAgeFromBirthDate(user.profile?.birth_date, 25);
+      const goalType = normalizeGoalType(activeGoalType || user.profile?.goal);
+
+      const nutritionProfile = calculateCalorieTargetFromProfile({
+        weight,
+        height,
+        gender,
+        age,
+        goalType,
+      });
+
+      setCalorieGoal(nutritionProfile.targetCalories);
+      setUserGoalType(nutritionProfile.normalizedGoal);
+      setUserCurrentWeight(weight);
+      setBmiValue(nutritionProfile.bmi);
+      setBmiCategory(nutritionProfile.bmiCategory);
     };
     autoCalculateTarget();
   }, []);
@@ -203,13 +219,22 @@ const MealPlannerPage = () => {
         return toast.error("Không thể tạo thực đơn cho ngày quá khứ!");
     }
 
-    const cacheKey = `hm_ai_meal_rec_${selectedDate}`;
+    const cacheKey = getAiCacheKey(selectedDate);
     const cachedData = localStorage.getItem(cacheKey);
+
+    const applyAIMeta = (meta: any) => {
+      if (!meta || typeof meta !== 'object') return;
+      if (Number(meta.target_calories) > 0) setCalorieGoal(Math.round(Number(meta.target_calories)));
+      if (typeof meta.goal_type === 'string') setUserGoalType(normalizeGoalType(meta.goal_type));
+      if (Number(meta.bmi) > 0) setBmiValue(Number(meta.bmi));
+      if (typeof meta.bmi_category === 'string') setBmiCategory(meta.bmi_category);
+    };
 
     if (cachedData && !forceGenerate) {
         const parsed = JSON.parse(cachedData);
         setAiRecs(parsed);
         setAiSuggestions(parsed.suggestions || []);
+        applyAIMeta(parsed.meta);
         return;
     }
 
@@ -227,6 +252,7 @@ const MealPlannerPage = () => {
       if (res.ok) {
           setAiRecs(data || {});
           setAiSuggestions(data?.suggestions || []);
+          applyAIMeta(data?.meta);
           localStorage.setItem(cacheKey, JSON.stringify(data));
           if (forceGenerate) toast.success("Thực đơn mới đã sẵn sàng!", { id: 'ai' });
       } else {
@@ -312,7 +338,7 @@ const MealPlannerPage = () => {
   const estProtein = Math.round((calorieGoal * 0.25) / 4);
   const estFat     = Math.round((calorieGoal * 0.25) / 9);
 
-  const hasAiLoadedToday = !!localStorage.getItem(`hm_ai_meal_rec_${selectedDate}`);
+  const hasAiLoadedToday = !!localStorage.getItem(getAiCacheKey(selectedDate));
 
   return (
     <Layout>
@@ -320,8 +346,8 @@ const MealPlannerPage = () => {
         
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Thực đơn của tôi</h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-1 text-lg">Theo dõi dinh dưỡng hàng ngày</p>
+            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">My Meal Plan</h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1 text-lg">Track your daily nutrition</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <button 
@@ -339,15 +365,15 @@ const MealPlannerPage = () => {
                  {!isProValid ? 'workspace_premium' : 'auto_awesome'}
                </span> 
                {!isProValid 
-                  ? 'Nâng cấp Pro để dùng AI' 
+                  ? 'Upgrade to Pro for AI' 
                   : loadingAI 
-                      ? 'Đang tạo...' 
-                      : hasAiLoadedToday ? 'Đã tạo menu hôm nay' : 'Đầu bếp AI'
+                      ? 'Generating...' 
+                      : hasAiLoadedToday ? 'Today menu generated' : 'AI Chef'
                }
             </button>
 
             <Link to="/foods" className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition shadow-sm text-slate-600 dark:text-slate-300">
-              <span className="material-symbols-outlined text-[18px]">restaurant_menu</span> Thư viện
+              <span className="material-symbols-outlined text-[18px]">restaurant_menu</span> Library
             </Link>
           </div>
         </div>
@@ -365,7 +391,7 @@ const MealPlannerPage = () => {
             <span className="material-symbols-outlined text-slate-500">chevron_right</span>
           </button>
           <button onClick={() => setSelectedDate(todayStr)} className="px-4 py-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer ml-2">
-            Hôm nay
+            Today
           </button>
         </div>
 
@@ -399,7 +425,7 @@ const MealPlannerPage = () => {
 
                   {slotItems.length === 0 ? (
                     <div className="px-5 py-6 text-center text-sm font-medium text-slate-400 bg-white/30 dark:bg-slate-900/30">
-                      Chưa có món nào — nhấn dấu cộng để thêm nhé!
+                      No meals yet - tap plus to add one.
                     </div>
                   ) : (
                     <div className="bg-white/50 dark:bg-slate-900/50 divide-y divide-white/60 dark:divide-slate-700/50">
@@ -438,17 +464,17 @@ const MealPlannerPage = () => {
                   {(!isPastDate && isProValid && recs.length > 0) && (
                     <div className="p-4 bg-white/30 dark:bg-slate-900/30 border-t border-white/50 dark:border-slate-800">
                       <p className="text-xs font-black text-primary uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[16px]">auto_awesome</span> Gợi ý từ Đầu Bếp AI
+                        <span className="material-symbols-outlined text-[16px]">auto_awesome</span> AI Chef Suggestions
                       </p>
                       {recs.map((rcm: any, idx: number) => (
                          <div key={idx} className="flex justify-between items-center bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 mb-2 hover:border-primary/30 transition-colors">
                            <div className="pr-4 flex-1">
                              <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">{rcm.name}</p>
-                             <p className="text-xs text-slate-500 mt-1"><span className="text-amber-500 font-bold">{rcm.calories} kcal</span> / khẩu phần</p>
+                              <p className="text-xs text-slate-500 mt-1"><span className="text-amber-500 font-bold">{rcm.calories} kcal</span> / serving</p>
                              <p className="text-[11px] text-primary italic mt-1.5 leading-snug">{rcm.reason}</p>
                            </div>
                            <button onClick={() => addFoodToMealPlan(rcm, slot.key)} className="bg-primary/10 text-primary hover:bg-primary hover:text-slate-900 px-4 py-2 rounded-lg text-xs font-bold transition flex-shrink-0">
-                             Thêm
+                              Add
                            </button>
                          </div>
                       ))}
@@ -464,9 +490,9 @@ const MealPlannerPage = () => {
             
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
               <div className="flex justify-between items-center mb-6">
-                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Mục tiêu Calo</p>
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Calorie Goal</p>
                  <span className="text-[10px] font-black bg-primary/10 text-primary px-2.5 py-1 rounded-full flex items-center gap-1 uppercase tracking-wider">
-                   <span className="material-symbols-outlined text-[12px]">auto_awesome</span> AI Tính Toán
+                   <span className="material-symbols-outlined text-[12px]">auto_awesome</span> AI Calculated
                  </span>
               </div>
 
@@ -485,19 +511,21 @@ const MealPlannerPage = () => {
               <div className="grid grid-cols-2 gap-4 text-center mb-6">
                 <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/50">
                   <p className="text-2xl font-black text-slate-900 dark:text-white">{totalCalories}</p>
-                  <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wider">Đã nạp</p>
+                  <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wider">Consumed</p>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/50">
                   <p className="text-2xl font-black text-slate-900 dark:text-white">{calorieRemain}</p>
-                  <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wider">Còn lại</p>
+                  <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wider">Remaining</p>
                 </div>
               </div>
 
               <div className="text-center pt-4 border-t border-slate-100 dark:border-slate-800">
                   <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                    Mục tiêu: <span className="text-primary font-black">{calorieGoal.toLocaleString()}</span> kcal 
+                    Goal: <span className="text-primary font-black">{calorieGoal.toLocaleString()}</span> kcal 
                   </p>
-                  <p className="text-[11px] text-slate-500 font-medium mt-1.5 leading-relaxed">Được AI tính toán tự động dựa trên <br/>cân nặng {userCurrentWeight}kg & mục tiêu cá nhân.</p>
+                  <p className="text-[11px] text-slate-500 font-medium mt-1.5 leading-relaxed">
+                    AI-calculated from BMI <b>{bmiValue > 0 ? bmiValue.toFixed(1) : '--'}</b> ({getBmiCategoryLabel(bmiCategory)}) and your goal <b>{getGoalLabel(userGoalType)}</b>.
+                  </p>
               </div>
             </div>
 
@@ -508,17 +536,17 @@ const MealPlannerPage = () => {
                     </div>
                     <div className="relative z-10">
                         <p className="text-xs font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest flex items-center gap-1.5 mb-3">
-                            <span className="material-symbols-outlined text-[16px]">psychology</span> Phân tích từ AI
+                            <span className="material-symbols-outlined text-[16px]">psychology</span> AI Analysis
                         </p>
                         <p className="text-sm text-rose-800 dark:text-rose-200 font-medium leading-relaxed">
-                            {isAnalyzingLimit ? 'Đang phân tích dữ liệu calo...' : aiLimitWarning}
+                            {isAnalyzingLimit ? 'Analyzing calorie data...' : aiLimitWarning}
                         </p>
                     </div>
                 </div>
             )}
 
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-5">Phân bổ Dưỡng chất (Ước tính)</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-5">Macronutrient Split (Estimated)</p>
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between mb-1.5"><span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Carbohydrate (50%)</span><span className="text-xs font-bold dark:text-slate-300">{estCarb}g</span></div>
@@ -529,7 +557,7 @@ const MealPlannerPage = () => {
                   <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full"><div className="h-full bg-primary rounded-full" style={{ width: '25%' }} /></div>
                 </div>
                 <div>
-                  <div className="flex justify-between mb-1.5"><span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Chất béo (25%)</span><span className="text-xs font-bold dark:text-slate-300">{estFat}g</span></div>
+                  <div className="flex justify-between mb-1.5"><span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Fat (25%)</span><span className="text-xs font-bold dark:text-slate-300">{estFat}g</span></div>
                   <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full"><div className="h-full bg-amber-400 rounded-full" style={{ width: '25%' }} /></div>
                 </div>
               </div>
@@ -543,7 +571,7 @@ const MealPlannerPage = () => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-              <h3 className="font-bold text-lg text-slate-900 dark:text-white">Thêm vào: {MEAL_SLOTS.find(s=>s.key===targetSlot)?.label}</h3>
+              <h3 className="font-bold text-lg text-slate-900 dark:text-white">Add to: {MEAL_SLOTS.find(s=>s.key===targetSlot)?.label}</h3>
               <button onClick={() => setShowFoodModal(false)} className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 text-slate-400 hover:text-slate-900 hover:bg-slate-200 dark:hover:text-white transition flex items-center justify-center shadow-sm">
                 <span className="material-symbols-outlined text-lg">close</span>
               </button>
@@ -551,7 +579,7 @@ const MealPlannerPage = () => {
             <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800">
               <div className="relative">
                   <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
-                  <input type="text" placeholder="Tìm món ăn..." value={foodSearch} onChange={e => setFoodSearch(e.target.value)} className="w-full pl-12 pr-4 py-3 text-sm font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all" autoFocus />
+                  <input type="text" placeholder="Search foods..." value={foodSearch} onChange={e => setFoodSearch(e.target.value)} className="w-full pl-12 pr-4 py-3 text-sm font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all" autoFocus />
               </div>
             </div>
             <div className="overflow-y-auto flex-1 p-3 scrollbar-hide bg-slate-50/50 dark:bg-slate-900/50">
@@ -559,7 +587,7 @@ const MealPlannerPage = () => {
               {/* Hiển thị AI Suggestions nếu có */}
               {aiSuggestions.length > 0 && foodSearch === '' && (
                   <div className="mb-6">
-                      <p className="text-xs font-black text-purple-500 uppercase tracking-widest mb-3 flex items-center gap-1 px-2"><span className="material-symbols-outlined text-[14px]">auto_awesome</span> Gợi ý từ AI</p>
+                      <p className="text-xs font-black text-purple-500 uppercase tracking-widest mb-3 flex items-center gap-1 px-2"><span className="material-symbols-outlined text-[14px]">auto_awesome</span> AI Suggestions</p>
                       {aiSuggestions.map(food => (
                         <div key={food._id || food.id} className="flex justify-between items-center bg-purple-50 dark:bg-purple-900/10 p-3 rounded-xl border border-purple-100 dark:border-purple-800/30 mb-2 shadow-sm">
                           <div>
@@ -569,7 +597,7 @@ const MealPlannerPage = () => {
                           <div className="flex items-center gap-3">
                             <input type="number" value={quantities[food._id || food.id || ''] ?? 100} onChange={e => setQuantities(q => ({ ...q, [food._id || food.id || '']: parseInt(e.target.value) || 0 }))} className="w-16 px-2 py-1.5 text-sm font-bold text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:border-purple-400" />
                             <span className="text-[10px] font-bold text-slate-400">g</span>
-                            <button onClick={() => addFoodToMealPlan({ ...food, quantity: quantities[food._id || food.id || ''] ?? 100, calories: Math.round((food.calories * (quantities[food._id || food.id || ''] ?? 100)) / 100) }, targetSlot)} className="ml-2 px-4 py-2 bg-purple-500 text-white text-xs font-bold rounded-xl hover:brightness-110 shadow-sm transition-all">Thêm</button>
+                            <button onClick={() => addFoodToMealPlan({ ...food, quantity: quantities[food._id || food.id || ''] ?? 100, calories: Math.round((food.calories * (quantities[food._id || food.id || ''] ?? 100)) / 100) }, targetSlot)} className="ml-2 px-4 py-2 bg-purple-500 text-white text-xs font-bold rounded-xl hover:brightness-110 shadow-sm transition-all">Add</button>
                           </div>
                         </div>
                       ))}
@@ -596,7 +624,7 @@ const MealPlannerPage = () => {
         </div>
       )}
 
-      <ConfirmModal isOpen={deleteModal.isOpen} title="Xóa món ăn" message={`Xóa "${deleteModal.itemName}" khỏi thực đơn?`} confirmText="Xóa" onConfirm={handleRemoveConfirm} onCancel={() => setDeleteModal({ isOpen: false, itemId: '', itemName: '' })} />
+      <ConfirmModal isOpen={deleteModal.isOpen} title="Delete food" message={`Remove "${deleteModal.itemName}" from meal plan?`} confirmText="Delete" onConfirm={handleRemoveConfirm} onCancel={() => setDeleteModal({ isOpen: false, itemId: '', itemName: '' })} />
     </Layout>
   );
 };

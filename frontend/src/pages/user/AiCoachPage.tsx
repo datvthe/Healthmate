@@ -2,6 +2,37 @@ import React, { useState, useRef, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import { useNavigate } from 'react-router-dom';
 
+type WorkoutDayData = {
+  day: string;
+  date: string;
+  dateLabel: string;
+  minutes: number;
+  calories: number;
+  workoutCount: number;
+  activities: string[];
+  activityLevel: 'rest' | 'light' | 'medium' | 'high';
+  status: 'Active' | 'Rest';
+  heightPercent: number;
+};
+
+type HealthMetrics = {
+  metabolicRate: number;
+  recoveryScore: number;
+  sleep: string;
+  injuryRisk: string;
+  chartData: WorkoutDayData[];
+};
+
+const defaultChartData: WorkoutDayData[] = [
+  { day: 'MON', date: '', dateLabel: '', minutes: 0, calories: 0, workoutCount: 0, activities: [], activityLevel: 'rest', status: 'Rest', heightPercent: 5 },
+  { day: 'TUE', date: '', dateLabel: '', minutes: 0, calories: 0, workoutCount: 0, activities: [], activityLevel: 'rest', status: 'Rest', heightPercent: 5 },
+  { day: 'WED', date: '', dateLabel: '', minutes: 0, calories: 0, workoutCount: 0, activities: [], activityLevel: 'rest', status: 'Rest', heightPercent: 5 },
+  { day: 'THU', date: '', dateLabel: '', minutes: 0, calories: 0, workoutCount: 0, activities: [], activityLevel: 'rest', status: 'Rest', heightPercent: 5 },
+  { day: 'FRI', date: '', dateLabel: '', minutes: 0, calories: 0, workoutCount: 0, activities: [], activityLevel: 'rest', status: 'Rest', heightPercent: 5 },
+  { day: 'SAT', date: '', dateLabel: '', minutes: 0, calories: 0, workoutCount: 0, activities: [], activityLevel: 'rest', status: 'Rest', heightPercent: 5 },
+  { day: 'SUN', date: '', dateLabel: '', minutes: 0, calories: 0, workoutCount: 0, activities: [], activityLevel: 'rest', status: 'Rest', heightPercent: 5 },
+];
+
 const AiCoachPage = () => {
   const navigate = useNavigate();
 
@@ -38,17 +69,12 @@ const AiCoachPage = () => {
   const [isTyping, setIsTyping] = useState(false);
   
   // --- STATE CHO CHỈ SỐ SỨC KHỎE (Lấy từ API) ---
-  const [metrics, setMetrics] = useState({
+  const [metrics, setMetrics] = useState<HealthMetrics>({
     metabolicRate: 0,
     recoveryScore: 0,
     sleep: "0h 0m",
     injuryRisk: "Low",
-    chartData: [
-      { day: 'MON', heightPercent: 5 }, { day: 'TUE', heightPercent: 5 },
-      { day: 'WED', heightPercent: 5 }, { day: 'THU', heightPercent: 5 },
-      { day: 'FRI', heightPercent: 5 }, { day: 'SAT', heightPercent: 5 },
-      { day: 'SUN', heightPercent: 5 }
-    ]
+    chartData: defaultChartData
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -73,9 +99,40 @@ const AiCoachPage = () => {
         
         if (response.ok) {
           const data = await response.json();
-          // Đảm bảo dữ liệu không bị undefined
-          if(data && data.chartData) {
-              setMetrics(data);
+          if (data && data.chartData) {
+            const normalizedChartData: WorkoutDayData[] = Array.isArray(data.chartData)
+              ? data.chartData.map((dayData: Partial<WorkoutDayData>, index: number) => {
+                const fallback = defaultChartData[index] || defaultChartData[0];
+                const minutes = Number(dayData.minutes) || 0;
+                const workoutCount = Number(dayData.workoutCount) || 0;
+                const calories = Number(dayData.calories) || 0;
+                let activityLevel: WorkoutDayData['activityLevel'] = 'rest';
+                if (minutes >= 75) activityLevel = 'high';
+                else if (minutes >= 30) activityLevel = 'medium';
+                else if (minutes > 0) activityLevel = 'light';
+
+                return {
+                  day: dayData.day || fallback.day,
+                  date: dayData.date || '',
+                  dateLabel: dayData.dateLabel || '',
+                  minutes,
+                  calories,
+                  workoutCount,
+                  activities: Array.isArray(dayData.activities) ? dayData.activities : [],
+                  activityLevel: dayData.activityLevel || activityLevel,
+                  status: dayData.status || (minutes > 0 ? 'Active' : 'Rest'),
+                  heightPercent: Number(dayData.heightPercent) || Math.min((minutes / 120) * 100, 100) || 5,
+                };
+              })
+              : defaultChartData;
+
+            setMetrics({
+              metabolicRate: Number(data.metabolicRate) || 0,
+              recoveryScore: Number(data.recoveryScore) || 0,
+              sleep: data.sleep || '0h 0m',
+              injuryRisk: data.injuryRisk || 'Low',
+              chartData: normalizedChartData.length ? normalizedChartData : defaultChartData,
+            });
           }
         }
       } catch (error) {
@@ -152,12 +209,12 @@ const AiCoachPage = () => {
             <div className="col-span-12 flex items-center justify-center py-32">
               <div className="bg-[#111827] border border-slate-700 p-10 rounded-3xl max-w-md text-center shadow-2xl">
                  <span className="material-symbols-outlined text-6xl text-primary mb-4">smart_toy</span>
-                 <h2 className="text-2xl font-black text-white mb-3">AI Coach Độc Quyền</h2>
+                 <h2 className="text-2xl font-black text-white mb-3">Exclusive AI Coach</h2>
                  <p className="text-slate-400 text-sm mb-8 leading-relaxed">
                     Trò chuyện 24/7 với chuyên gia AI cần tài khoản Pro. Nâng cấp để mở khóa phân tích sức khỏe nâng cao.
                  </p>
                  <button onClick={() => navigate('/subscription')} className="w-full py-3.5 bg-primary text-slate-900 font-bold rounded-xl shadow-lg hover:brightness-110 transition-all">
-                    Nâng cấp Pro Ngay
+                    Upgrade to Pro
                  </button>
               </div>
             </div>
@@ -169,23 +226,100 @@ const AiCoachPage = () => {
                 {/* Metrics 3 cột */}
                
 
-                {/* Biểu đồ Impact */}
+                {/* Workout activity diagram */}
                 <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                  <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Workout Impact Analysis (7 Days)</h2>
+                  <div className="flex justify-between items-start mb-7">
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-white">Workout Impact Analysis (7 Days)</h2>
+                      <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">Visual timeline of your activities in the most recent 7 days.</p>
+                    </div>
                   </div>
-                  <div className="h-64 relative flex items-end justify-between gap-3 px-2">
-                    {metrics.chartData.map((data, idx) => (
-                      <div key={idx} className="w-full bg-primary/20 hover:bg-primary/40 rounded-t-xl relative group overflow-hidden transition-all cursor-pointer" style={{ height: `${data.heightPercent}%` }}>
-                        <div className="absolute bottom-0 w-full bg-primary transition-all h-full origin-bottom scale-y-0 group-hover:scale-y-100"></div>
-                        <div className="absolute opacity-0 group-hover:opacity-100 bottom-2 w-full text-center text-[10px] font-bold text-slate-900">{data.heightPercent > 5 ? 'Active' : ''}</div>
+
+                  <div className="hidden md:block mb-8">
+                    <div className="relative">
+                      <div className="absolute top-5 left-2 right-2 h-0.5 bg-slate-200 dark:bg-slate-700"></div>
+                      <div className="relative grid grid-cols-7 gap-3">
+                        {metrics.chartData.map((data, idx) => {
+                          const isActive = data.minutes > 0;
+                          const dotClass =
+                            data.activityLevel === 'high'
+                              ? 'bg-emerald-500 border-emerald-500 text-white'
+                              : data.activityLevel === 'medium'
+                                ? 'bg-primary border-primary text-slate-900'
+                                : data.activityLevel === 'light'
+                                  ? 'bg-primary/20 border-primary text-primary'
+                                  : 'bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400';
+
+                          return (
+                            <div key={`${data.date || data.day}-${idx}`} className="text-center">
+                              <div className={`mx-auto w-10 h-10 rounded-full border-2 flex items-center justify-center text-[11px] font-black ${dotClass}`}>
+                                {data.workoutCount}
+                              </div>
+                              <p className={`mt-2 text-[11px] font-black ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>{data.day}</p>
+                              <p className="text-[10px] text-slate-400">{data.minutes}m</p>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
+                    </div>
                   </div>
-                  <div className="flex justify-between mt-5 text-xs text-slate-400 font-bold px-2">
-                    {metrics.chartData.map((data, idx) => (
-                      <span key={idx} className="w-full text-center">{data.day}</span>
-                    ))}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {metrics.chartData.map((data, idx) => {
+                      const isActive = data.minutes > 0;
+                      const visibleActivities = data.activities.slice(0, 3);
+                      const hasMoreActivities = data.activities.length > 3;
+
+                      return (
+                        <article
+                          key={`${data.date || data.day}-detail-${idx}`}
+                          className={`rounded-2xl border p-4 transition-all ${isActive ? 'bg-[#f7fff9] border-[#c6f2d5] dark:bg-primary/5 dark:border-primary/20' : 'bg-slate-50 border-slate-200 dark:bg-slate-800/60 dark:border-slate-700'}`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{data.dateLabel || 'No date'}</p>
+                              <h3 className="text-base font-black text-slate-900 dark:text-white">{data.day}</h3>
+                            </div>
+                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full ${isActive ? 'bg-primary/15 text-primary' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>
+                              {data.status}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 mt-4">
+                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 p-2.5 text-center">
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">Workouts</p>
+                              <p className="text-sm font-black text-slate-900 dark:text-white">{data.workoutCount}</p>
+                            </div>
+                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 p-2.5 text-center">
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">Minutes</p>
+                              <p className="text-sm font-black text-slate-900 dark:text-white">{data.minutes}</p>
+                            </div>
+                            <div className="rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 p-2.5 text-center">
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">Calories</p>
+                              <p className="text-sm font-black text-slate-900 dark:text-white">{data.calories}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4">
+                            <p className="text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Activities</p>
+                            {visibleActivities.length > 0 ? (
+                              <ul className="mt-2 space-y-1.5">
+                                {visibleActivities.map((activity, activityIdx) => (
+                                  <li key={`${data.day}-activity-${activityIdx}`} className="text-xs text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5">
+                                    {activity}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">No workout logged. Recovery focus day.</p>
+                            )}
+                            {hasMoreActivities && (
+                              <p className="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">+{data.activities.length - visibleActivities.length} more activities</p>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
                 </div>
 

@@ -1,5 +1,11 @@
 const User = require('../models/User');
 const PayOS = require('@payos/node');
+const {
+  createProEndDate,
+  isFuture,
+  syncExpiredSubscription,
+  toClientSubscription,
+} = require("../utils/subscriptionUtils");
 
 // Khởi tạo PayOS
 const payos = new PayOS(
@@ -12,6 +18,7 @@ exports.createPaymentLink = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    await syncExpiredSubscription(user);
 
     const orderCode = Number(String(Date.now()).slice(-6));
     
@@ -35,24 +42,31 @@ exports.createPaymentLink = async (req, res) => {
 
 exports.upgradeToPro = async (req, res) => {
   try {
-    const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // + 30 ngày
-    
-    const updatedUser = await User.findByIdAndUpdate(
-        req.user.id,
-        { $set: { "subscription.plan": "pro", "subscription.endDate": endDate } },
-        { new: true, strict: false }
-    );
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
 
-    if (!updatedUser) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    await syncExpiredSubscription(user);
+
+    const currentEnd = user?.subscription?.endDate ? new Date(user.subscription.endDate) : null;
+    const baseDate =
+      user?.subscription?.plan === "pro" && isFuture(currentEnd) ? currentEnd : new Date();
+
+    const endDate = createProEndDate(baseDate);
+    user.subscription = {
+      ...(user.subscription || {}),
+      plan: "pro",
+      endDate,
+    };
+    await user.save();
 
     res.json({ 
         message: "Nâng cấp Pro thành công!", 
         user: {
-            _id: updatedUser._id,
-            email: updatedUser.email,
-            role: updatedUser.role,
-            profile: updatedUser.profile,
-            subscription: { plan: 'pro', endDate: endDate }
+            _id: user._id,
+            email: user.email,
+            role: user.role,
+            profile: user.profile,
+            subscription: toClientSubscription(user),
         }
     });
   } catch (error) {
@@ -62,22 +76,24 @@ exports.upgradeToPro = async (req, res) => {
 
 exports.downgradeToFree = async (req, res) => {
     try {
-      const updatedUser = await User.findByIdAndUpdate(
-          req.user.id,
-          { $set: { "subscription.plan": "free", "subscription.endDate": null } },
-          { new: true, strict: false }
-      );
-      
-      if (!updatedUser) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+      const user = await User.findById(req.user.id);
+      if (!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+
+      user.subscription = {
+        ...(user.subscription || {}),
+        plan: "free",
+        endDate: null,
+      };
+      await user.save();
   
       res.json({ 
           message: "Đã hủy gói Pro", 
           user: {
-              _id: updatedUser._id,
-              email: updatedUser.email,
-              role: updatedUser.role,
-              profile: updatedUser.profile,
-              subscription: { plan: 'free', endDate: null }
+              _id: user._id,
+              email: user.email,
+              role: user.role,
+              profile: user.profile,
+              subscription: toClientSubscription(user),
           }
       });
     } catch (error) {

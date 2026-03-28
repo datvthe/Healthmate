@@ -15,9 +15,9 @@ const formatDateTime = (dateString: string) => {
 };
 
 const quickLinks = [
-  { title: 'Quản lý Món ăn', desc: 'Thêm, sửa, xóa món ăn trong thư viện hệ thống', path: '/admin/foods', icon: 'restaurant_menu', color: 'text-emerald-500 bg-emerald-100 dark:bg-emerald-500/20' },
-  { title: 'Quản lý Bài viết', desc: 'Kiểm duyệt nội dung và bài viết từ cộng đồng', path: '/admin/posts', icon: 'public', color: 'text-blue-500 bg-blue-100 dark:bg-blue-500/20' },
-  { title: 'Quản lý Người dùng', desc: 'Xem danh sách, phân quyền hoặc khóa tài khoản', path: '/admin/users', icon: 'manage_accounts', color: 'text-purple-500 bg-purple-100 dark:bg-purple-500/20' },
+  { title: 'Food Management', desc: 'Add, edit, and remove foods in the system library', path: '/admin/foods', icon: 'restaurant_menu', color: 'text-emerald-500 bg-emerald-100 dark:bg-emerald-500/20' },
+  { title: 'Post Management', desc: 'Moderate community posts and content', path: '/admin/posts', icon: 'public', color: 'text-blue-500 bg-blue-100 dark:bg-blue-500/20' },
+  { title: 'User Management', desc: 'Review, assign roles, or lock user accounts', path: '/admin/users', icon: 'manage_accounts', color: 'text-purple-500 bg-purple-100 dark:bg-purple-500/20' },
 ];
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'https://healthmate-y9vt.onrender.com' : 'https://healthmate-y9vt.onrender.com');
@@ -78,18 +78,18 @@ const AdminDashboardPage = () => {
                 else active++; // Default là active
             });
             setUserChartData([
-                { name: 'Hoạt động', value: active, color: '#10b981' },   // emerald-500
-                { name: 'Chưa kích hoạt', value: inactive, color: '#f59e0b' }, // amber-500
-                { name: 'Bị khóa', value: banned, color: '#ef4444' }      // red-500
+                { name: 'Active', value: active, color: '#10b981' },   // emerald-500
+                { name: 'Inactive', value: inactive, color: '#f59e0b' }, // amber-500
+                { name: 'Banned', value: banned, color: '#ef4444' }      // red-500
             ]);
         }
 
         // 3. Xử lý dữ liệu cho Biểu đồ Cột (Tỷ lệ nội dung)
         setContentChartData([
-            { name: 'Bài viết', value: Array.isArray(postsData) ? postsData.length : 0, color: '#3b82f6' },    // blue-500
-            { name: 'Hội nhóm', value: Array.isArray(groupsData) ? groupsData.length : 0, color: '#6366f1' },  // indigo-500
-            { name: 'Thử thách', value: Array.isArray(challengesData) ? challengesData.length : 0, color: '#f59e0b' }, // amber-500
-            { name: 'Món ăn', value: Array.isArray(foodsData) ? foodsData.length : 0, color: '#f43f5e' }       // rose-500
+            { name: 'Posts', value: Array.isArray(postsData) ? postsData.length : 0, color: '#3b82f6' },    // blue-500
+            { name: 'Groups', value: Array.isArray(groupsData) ? groupsData.length : 0, color: '#6366f1' },  // indigo-500
+            { name: 'Challenges', value: Array.isArray(challengesData) ? challengesData.length : 0, color: '#f59e0b' }, // amber-500
+            { name: 'Foods', value: Array.isArray(foodsData) ? foodsData.length : 0, color: '#f43f5e' }       // rose-500
         ]);
 
         // 4. Lấy 4 bài viết mới nhất
@@ -113,18 +113,18 @@ const AdminDashboardPage = () => {
       <div className="max-w-7xl mx-auto w-full pb-10 animate-fade-in">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
             <div>
-                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-1">Tổng quan Hệ thống</h1>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Theo dõi các chỉ số và hoạt động mới nhất của HealthMate.</p>
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-1">System Overview</h1>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Track the latest HealthMate metrics and activity.</p>
             </div>
             <button onClick={() => window.location.reload()} className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-colors shadow-sm">
-                <span className="material-symbols-outlined text-[18px]">refresh</span> Làm mới
+                <span className="material-symbols-outlined text-[18px]">refresh</span> Refresh
             </button>
         </div>
 
         {loading ? (
            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                <span className="material-symbols-outlined animate-spin text-4xl mb-4">progress_activity</span>
-               <p className="font-bold">Đang đồng bộ dữ liệu...</p>
+               <p className="font-bold">Syncing data...</p>
            </div>
         ) : (
            <>
@@ -134,7 +134,7 @@ const AdminDashboardPage = () => {
                   <div className="absolute right-[-10px] top-[-10px] opacity-[0.03] group-hover:scale-110 transition-transform"><span className="material-symbols-outlined text-8xl">group</span></div>
                   <div className="flex items-center gap-3 mb-3 relative z-10">
                     <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center"><span className="material-symbols-outlined text-[20px]">group</span></div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Người dùng</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Users</p>
                   </div>
                   <p className="text-3xl font-black text-slate-900 dark:text-white relative z-10">{stats.users}</p>
                 </div>
@@ -143,7 +143,7 @@ const AdminDashboardPage = () => {
                   <div className="absolute right-[-10px] top-[-10px] opacity-[0.03] group-hover:scale-110 transition-transform"><span className="material-symbols-outlined text-8xl">article</span></div>
                   <div className="flex items-center gap-3 mb-3 relative z-10">
                     <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center"><span className="material-symbols-outlined text-[20px]">article</span></div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Bài viết</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Posts</p>
                   </div>
                   <p className="text-3xl font-black text-slate-900 dark:text-white relative z-10">{stats.posts}</p>
                 </div>
@@ -152,7 +152,7 @@ const AdminDashboardPage = () => {
                   <div className="absolute right-[-10px] top-[-10px] opacity-[0.03] group-hover:scale-110 transition-transform"><span className="material-symbols-outlined text-8xl">diversity_3</span></div>
                   <div className="flex items-center gap-3 mb-3 relative z-10">
                     <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center"><span className="material-symbols-outlined text-[20px]">diversity_3</span></div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Hội nhóm</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Groups</p>
                   </div>
                   <p className="text-3xl font-black text-slate-900 dark:text-white relative z-10">{stats.groups}</p>
                 </div>
@@ -161,7 +161,7 @@ const AdminDashboardPage = () => {
                   <div className="absolute right-[-10px] top-[-10px] opacity-[0.03] group-hover:scale-110 transition-transform"><span className="material-symbols-outlined text-8xl">stars</span></div>
                   <div className="flex items-center gap-3 mb-3 relative z-10">
                     <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center"><span className="material-symbols-outlined text-[20px]">stars</span></div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Thử thách</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Challenges</p>
                   </div>
                   <p className="text-3xl font-black text-slate-900 dark:text-white relative z-10">{stats.challenges}</p>
                 </div>
@@ -170,7 +170,7 @@ const AdminDashboardPage = () => {
                   <div className="absolute right-[-10px] top-[-10px] opacity-[0.03] group-hover:scale-110 transition-transform"><span className="material-symbols-outlined text-8xl">restaurant</span></div>
                   <div className="flex items-center gap-3 mb-3 relative z-10">
                     <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 flex items-center justify-center"><span className="material-symbols-outlined text-[20px]">restaurant</span></div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Món ăn</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Foods</p>
                   </div>
                   <p className="text-3xl font-black text-slate-900 dark:text-white relative z-10">{stats.foods}</p>
                 </div>
@@ -181,7 +181,7 @@ const AdminDashboardPage = () => {
                   {/* Biểu đồ tròn: Trạng thái User */}
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6">
                       <h2 className="text-base font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-primary">pie_chart</span> Thống kê Trạng thái Người dùng
+                          <span className="material-symbols-outlined text-primary">pie_chart</span> User Status Overview
                       </h2>
                       <div className="h-[300px] w-full">
                           <ResponsiveContainer width="100%" height="100%">
@@ -213,7 +213,7 @@ const AdminDashboardPage = () => {
                   {/* Biểu đồ cột: Tỷ lệ nội dung */}
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6">
                       <h2 className="text-base font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-primary">bar_chart</span> Thống kê Nội dung Hệ thống
+                          <span className="material-symbols-outlined text-primary">bar_chart</span> System Content Overview
                       </h2>
                       <div className="h-[300px] w-full">
                           <ResponsiveContainer width="100%" height="100%">
@@ -243,13 +243,13 @@ const AdminDashboardPage = () => {
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden h-full">
                         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/20">
                             <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                <span className="material-symbols-outlined text-primary">dynamic_feed</span> Hoạt động cộng đồng mới nhất
+                                <span className="material-symbols-outlined text-primary">dynamic_feed</span> Latest Community Activity
                             </h2>
-                            <Link to="/admin/posts" className="text-xs font-bold text-primary hover:underline">Xem tất cả</Link>
+                            <Link to="/admin/posts" className="text-xs font-bold text-primary hover:underline">View all</Link>
                         </div>
                         <div className="p-0">
                             {recentPosts.length === 0 ? (
-                                <p className="text-center text-slate-500 py-10 text-sm">Chưa có bài viết mới nào.</p>
+                                <p className="text-center text-slate-500 py-10 text-sm">No recent posts yet.</p>
                             ) : (
                                 recentPosts.map((post, idx) => (
                                     <div key={post._id} className={`p-5 flex gap-4 items-start ${idx !== recentPosts.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''} hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors`}>
@@ -275,7 +275,7 @@ const AdminDashboardPage = () => {
                 <div className="lg:col-span-1">
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-6 sticky top-24">
                         <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-5 flex items-center gap-2">
-                            <span className="material-symbols-outlined text-slate-400">bolt</span> Lối tắt Quản trị
+                            <span className="material-symbols-outlined text-slate-400">bolt</span> Admin Shortcuts
                         </h2>
                         <div className="space-y-3">
                         {quickLinks.map((item) => (

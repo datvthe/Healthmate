@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { createTrialEndDate } = require("../utils/subscriptionUtils");
 
 const userSchema = new mongoose.Schema(
   {
@@ -29,13 +30,13 @@ const userSchema = new mongoose.Schema(
     subscription: {
       plan: {
         type: String,
-        enum: ['free', 'pro'],
-        default: 'free'
+        enum: ["trial", "free", "pro"],
+        default: "trial",
       },
       endDate: {
         type: Date,
-        default: null
-      }
+        default: createTrialEndDate,
+      },
     },
     // Nhúng trực tiếp Profile vào User để tối ưu truy vấn
     profile: {
@@ -62,6 +63,13 @@ const userSchema = new mongoose.Schema(
         duration: Number,
         calories: Number,
         image: String,
+        video_url: String,
+        plan_day: Number,
+        access_tier: {
+          type: String,
+          enum: ["free", "premium"],
+          default: "free",
+        },
       },
     ],
   },

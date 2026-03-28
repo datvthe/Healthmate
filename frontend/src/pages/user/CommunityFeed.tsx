@@ -38,6 +38,58 @@ const CommunityFeed = () => {
     const navigate = useNavigate();
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const token = localStorage.getItem("token");
+    const groupCoverInputRef = useRef<HTMLInputElement>(null);
+    const [editingCoverGroupId, setEditingCoverGroupId] = useState<string | null>(null);
+
+    const canEditGroupCover = (group: any) => {
+        if (!token || !group) return false;
+        const adminId = group?.admin?._id || group?.admin;
+        return currentUser?.role === 'admin' || (adminId && String(adminId) === String(currentUser?._id));
+    };
+
+    const openGroupCoverPicker = (groupId: string) => {
+        if (!groupId) return;
+        setEditingCoverGroupId(groupId);
+        groupCoverInputRef.current?.click();
+    };
+
+    const handleGroupCoverSelected = async (file?: File) => {
+        if (!file || !editingCoverGroupId || !token) return;
+        if (!file.type.startsWith('image/')) {
+            toast.error("Vui lòng chọn file ảnh.");
+            return;
+        }
+        if (file.size > 8 * 1024 * 1024) {
+            toast.error("Ảnh bìa tối đa 8MB.");
+            return;
+        }
+
+        try {
+            const body = new FormData();
+            body.append("coverImage", file);
+            const res = await fetch(`${API_URL}/api/community/groups/${editingCoverGroupId}/cover`, {
+                method: "PUT",
+                headers: { "Authorization": `Bearer ${token}` },
+                body,
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                toast.error(data.message || "Không thể cập nhật ảnh bìa.");
+                return;
+            }
+
+            if (String(currentGroupId) === String(editingCoverGroupId)) {
+                setCurrentGroupData(data);
+            }
+            window.dispatchEvent(new Event('groups-updated'));
+            toast.success("Đã cập nhật ảnh bìa nhóm!");
+        } catch (error) {
+            toast.error("Lỗi kết nối khi cập nhật ảnh bìa.");
+        } finally {
+            setEditingCoverGroupId(null);
+            if (groupCoverInputRef.current) groupCoverInputRef.current.value = "";
+        }
+    };
 
     const fetchChallenges = () => {
         fetch(`${API_URL}/api/community/challenges`, {
@@ -146,6 +198,13 @@ const CommunityFeed = () => {
         <div className="flex flex-col min-h-screen bg-[#f6f8f6] dark:bg-[#102216] font-['Inter']">
             <Navbar />
             <Toaster position="top-right"/>
+            <input
+                ref={groupCoverInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleGroupCoverSelected(e.target.files?.[0])}
+            />
             <main className="flex-grow max-w-[1280px] mx-auto px-6 py-8 w-full">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     <div className="hidden lg:block lg:col-span-3 sticky top-24">
@@ -166,7 +225,17 @@ const CommunityFeed = () => {
                                     <div className="bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800">
                                         <div className="h-32 bg-slate-200 bg-cover bg-center" style={{backgroundImage: `url(${currentGroupData.coverImage})`}}></div>
                                         <div className="p-5">
-                                            <h2 className="text-xl font-black dark:text-white">{currentGroupData.name}</h2>
+                                            <div className="flex items-center justify-between gap-3">
+                                                <h2 className="text-xl font-black dark:text-white">{currentGroupData.name}</h2>
+                                                {canEditGroupCover(currentGroupData) && (
+                                                    <button
+                                                        onClick={() => openGroupCoverPicker(currentGroupId || currentGroupData._id)}
+                                                        className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                                    >
+                                                        Edit Cover
+                                                    </button>
+                                                )}
+                                            </div>
                                             <p className="text-sm text-slate-500 mt-1">{currentGroupData.description}</p>
                                         </div>
                                     </div>
@@ -203,7 +272,15 @@ const CommunityFeed = () => {
                             </>
                         )}
                         {activeView === 'leaderboard' && <LeaderboardView data={leaderboard} />}
-                        {activeView === 'groups' && <DiscoverGroups user={currentUser} setActiveView={setActiveView} setCurrentGroupId={setCurrentGroupId} />}
+                        {activeView === 'groups' && (
+                            <DiscoverGroups
+                                user={currentUser}
+                                setActiveView={setActiveView}
+                                setCurrentGroupId={setCurrentGroupId}
+                                canEditGroupCover={canEditGroupCover}
+                                onEditGroupCover={openGroupCoverPicker}
+                            />
+                        )}
                         
                         {/* 🔴 TRUYỀN HÀM fetchPostsData XUỐNG CHALLENGES ĐỂ CẬP NHẬT TỨC THÌ */}
                         {activeView === 'challenges' && <ChallengesView user={currentUser} challenges={challenges} fetchChallenges={fetchChallenges} fetchPostsData={fetchPostsData} />}
@@ -268,13 +345,13 @@ const ChallengesView = ({ user, challenges, fetchChallenges, fetchPostsData }: a
     return (
         <div className="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold dark:text-white flex items-center gap-2"><span className="material-symbols-outlined text-primary">stars</span> Thử thách cộng đồng</h2>
+                <h2 className="text-xl font-bold dark:text-white flex items-center gap-2"><span className="material-symbols-outlined text-primary">stars</span> Community Challenges</h2>
                 <button onClick={() => setShowCreate(!showCreate)} className="bg-primary text-slate-900 px-4 py-2 rounded-lg text-sm font-bold shadow-sm active:scale-95 transition-all">+ Tạo Thử Thách</button>
             </div>
 
             {showCreate && (
                 <div className="mb-8 p-5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 animate-fade-in">
-                    <h3 className="font-bold text-sm mb-4 dark:text-white">Khởi tạo Thử Thách Mới</h3>
+                    <h3 className="font-bold text-sm mb-4 dark:text-white">Create New Challenge</h3>
                     <div className="space-y-3 mb-4">
                         <input type="text" placeholder="Tên thử thách (Tối thiểu 5 ký tự)" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full px-3 py-2 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-white text-sm outline-none focus:border-primary" />
                         <div className="flex gap-3">
@@ -444,7 +521,7 @@ const PostCard = ({ post, currentUserId, token, navigate, onUpdate, onDelete, ch
                 <div className="flex items-center gap-3">
                     <img src={getAvatar(post.user?.profile?.full_name, post.user?.profile?.picture)} className="size-10 rounded-full object-cover" alt="User" />
                     <div>
-                        <h4 className="text-sm font-bold dark:text-white leading-none">{post.user?.profile?.full_name || "Người dùng"}</h4>
+                        <h4 className="text-sm font-bold dark:text-white leading-none">{post.user?.profile?.full_name || "User"}</h4>
                         <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-1">
                             <span>{formatDateTime(post.createdAt)}</span>
                             {post.location && <><span className="mx-1">•</span> <span className="flex items-center"><span className="material-symbols-outlined text-[12px] mr-0.5">location_on</span> {post.location}</span></>}
@@ -572,11 +649,12 @@ const PostCard = ({ post, currentUserId, token, navigate, onUpdate, onDelete, ch
 };
 
 // ─── CÁC COMPONENT GIAO DIỆN TĨNH ───
-const DiscoverGroups = ({ user, setActiveView, setCurrentGroupId }: any) => {
+const DiscoverGroups = ({ user, setActiveView, setCurrentGroupId, canEditGroupCover, onEditGroupCover }: any) => {
     const [groups, setGroups] = useState<any[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newGroupName, setNewGroupName] = useState("");
     const [newGroupDesc, setNewGroupDesc] = useState("");
+    const [newGroupCoverUrl, setNewGroupCoverUrl] = useState("");
     const token = localStorage.getItem("token");
 
     const fetchGroups = () => {
@@ -586,19 +664,25 @@ const DiscoverGroups = ({ user, setActiveView, setCurrentGroupId }: any) => {
             .catch(err => console.error(err));
     };
 
-    useEffect(() => { fetchGroups(); }, []);
+    useEffect(() => {
+        fetchGroups();
+        const onGroupsUpdated = () => fetchGroups();
+        window.addEventListener('groups-updated', onGroupsUpdated);
+        return () => window.removeEventListener('groups-updated', onGroupsUpdated);
+    }, []);
 
     const handleCreateGroup = async () => {
         if(!newGroupName.trim() || !token) return;
         const res = await fetch(`${API_URL}/api/community/groups`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-            body: JSON.stringify({ name: newGroupName, description: newGroupDesc })
+            body: JSON.stringify({ name: newGroupName, description: newGroupDesc, coverImage: newGroupCoverUrl })
         });
         if (res.ok) {
             setShowCreateModal(false);
-            setNewGroupName(""); setNewGroupDesc("");
+            setNewGroupName(""); setNewGroupDesc(""); setNewGroupCoverUrl("");
             fetchGroups(); 
+            window.dispatchEvent(new Event('groups-updated'));
         }
     };
 
@@ -642,9 +726,10 @@ const DiscoverGroups = ({ user, setActiveView, setCurrentGroupId }: any) => {
 
             {showCreateModal && (
                 <div className="mb-8 p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <h3 className="font-bold text-sm mb-3 dark:text-white">Tạo nhóm của bạn</h3>
+                    <h3 className="font-bold text-sm mb-3 dark:text-white">Create Your Group</h3>
                     <input type="text" placeholder="Tên nhóm (VD: Hội chạy bộ Hồ Tây)" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} className="w-full mb-3 px-3 py-2 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-white text-sm" />
                     <textarea placeholder="Mô tả nhóm..." value={newGroupDesc} onChange={e => setNewGroupDesc(e.target.value)} className="w-full mb-3 px-3 py-2 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-white text-sm" rows={2}></textarea>
+                    <input type="text" placeholder="Group cover image URL (optional)" value={newGroupCoverUrl} onChange={e => setNewGroupCoverUrl(e.target.value)} className="w-full mb-3 px-3 py-2 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-white text-sm" />
                     <div className="flex gap-2 justify-end">
                         <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Hủy</button>
                         <button onClick={handleCreateGroup} className="bg-primary text-black px-4 py-2 rounded-lg text-sm font-bold">Xác nhận tạo</button>
@@ -663,16 +748,21 @@ const DiscoverGroups = ({ user, setActiveView, setCurrentGroupId }: any) => {
                                 <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{group.description || 'Chưa có mô tả'}</p>
                                 <div className="mt-4 flex items-center justify-between">
                                     <span className="text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">{group.members?.length || 0} Thành viên</span>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => handleJoinGroup(group._id)} className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${isMember ? 'bg-slate-100 text-slate-600 hover:bg-rose-100 hover:text-rose-600' : 'bg-primary text-black hover:brightness-110'}`}>
-                                            {isMember ? 'Rời nhóm' : 'Tham gia'}
-                                        </button>
-                                        <button onClick={() => handleViewGroup(group._id)} className="px-3 py-1.5 rounded text-xs font-bold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
-                                            Xem feed
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                                     <div className="flex gap-2">
+                                         <button onClick={() => handleJoinGroup(group._id)} className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${isMember ? 'bg-slate-100 text-slate-600 hover:bg-rose-100 hover:text-rose-600' : 'bg-primary text-black hover:brightness-110'}`}>
+                                             {isMember ? 'Rời nhóm' : 'Tham gia'}
+                                         </button>
+                                         <button onClick={() => handleViewGroup(group._id)} className="px-3 py-1.5 rounded text-xs font-bold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
+                                             Xem feed
+                                         </button>
+                                         {canEditGroupCover(group) && (
+                                             <button onClick={() => onEditGroupCover(group._id)} className="px-3 py-1.5 rounded text-xs font-bold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
+                                                 Sửa bìa
+                                             </button>
+                                         )}
+                                     </div>
+                                 </div>
+                             </div>
                         </div>
                     )
                 })}
@@ -685,12 +775,18 @@ const CommunityGroupsPreview = ({ setActiveView, setCurrentGroupId }: any) => {
     const [previewGroups, setPreviewGroups] = useState<any[]>([]);
 
     useEffect(() => {
-        fetch(`${API_URL}/api/community/groups`)
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) setPreviewGroups(data.slice(0, 3));
-            })
-            .catch(err => console.error(err));
+        const loadPreviewGroups = () => {
+            fetch(`${API_URL}/api/community/groups`)
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data)) setPreviewGroups(data.slice(0, 3));
+                })
+                .catch(err => console.error(err));
+        };
+
+        loadPreviewGroups();
+        window.addEventListener('groups-updated', loadPreviewGroups);
+        return () => window.removeEventListener('groups-updated', loadPreviewGroups);
     }, []);
 
     return (
@@ -826,7 +922,7 @@ const ShareUpdateSection = ({ content, setContent, mediaFile, setMediaFile, loca
                                 onClick={() => setIsSearchingLoc(!isSearchingLoc)} 
                                 disabled={!!locationInfo}
                                 className={`flex items-center gap-1 transition-colors ${locationInfo ? 'text-slate-300 cursor-not-allowed' : 'hover:text-primary'}`}
-                                title={locationInfo ? "Chỉ được chọn 1 địa điểm" : "Thêm vị trí"}
+                                title={locationInfo ? "Only one location can be selected" : "Add location"}
                             >
                                 <span className="material-symbols-outlined">location_on</span>
                             </button>

@@ -1,14 +1,38 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/Layout';
-import { getDailyRoutine } from '../../services/workoutService';
+import { getDailyRoutine, getMyWorkoutLogs } from '../../services/workoutService';
 import toast, { Toaster } from 'react-hot-toast'; 
+
+const BASE_URL =
+  (import.meta.env.DEV
+    ? import.meta.env.VITE_API_URL_DEV || "http://localhost:8000"
+    : import.meta.env.VITE_API_URL || "https://healthmate-y9vt.onrender.com");
 
 const getLocalDateString = (dateObj: Date) => {
   const year = dateObj.getFullYear();
   const month = String(dateObj.getMonth() + 1).padStart(2, "0");
   const dateNum = String(dateObj.getDate()).padStart(2, "0");
   return `${year}-${month}-${dateNum}`;
+};
+
+const parseLocalDate = (dateStr: string): Date => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
+const getWeekDates = (dateStr: string): string[] => {
+  const selected = parseLocalDate(dateStr);
+  const day = selected.getDay();
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  const weekStart = new Date(selected);
+  weekStart.setDate(selected.getDate() - diffToMonday);
+
+  return Array.from({ length: 7 }).map((_, index) => {
+    const dateObj = new Date(weekStart);
+    dateObj.setDate(weekStart.getDate() + index);
+    return getLocalDateString(dateObj);
+  });
 };
 
 const OverviewPage = () => {
@@ -28,7 +52,8 @@ const OverviewPage = () => {
   const [dailyCaloriesBurned, setDailyCaloriesBurned] = useState<number>(0);
   const [dailyWorkoutsCompleted, setDailyWorkoutsCompleted] = useState<number>(0);
   const [dailyDuration, setDailyDuration] = useState<number>(0);
-  const [weeklyCaloriesByDay, setWeeklyCaloriesByDay] = useState<number[]>(new Array(7).fill(0));
+  const [weeklyCaloriesBurnByDay, setWeeklyCaloriesBurnByDay] = useState<number[]>(new Array(7).fill(0));
+  const [weeklyCaloriesInByDay, setWeeklyCaloriesInByDay] = useState<number[]>(new Array(7).fill(0));
   const [upcomingWorkout, setUpcomingWorkout] = useState<any>(null);
   
   const [entries, setEntries] = useState<{ date: string; weight: number; height: number; bmi: number }[]>([]);
@@ -59,48 +84,65 @@ const OverviewPage = () => {
     const loadDailyData = async () => {
       try {
         const token = localStorage.getItem('token');
-        const mealRes = await fetch(`https://healthmate-y9vt.onrender.com/api/meal-plans/${selectedDate}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (mealRes.ok) {
-            const mealData = await mealRes.json();
-            setDailyCaloriesIn(mealData.total_calories || 0);
-        } else {
-            setDailyCaloriesIn(0);
-        }
+        if (!token) return;
 
-        const logRes = await fetch(`https://healthmate-y9vt.onrender.com/api/workout-logs`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (logRes.ok) {
-            const logs = await logRes.json();
-            const dailyLogs = logs.filter((log: any) => log.date && log.date.startsWith(selectedDate));
-            setDailyWorkoutsCompleted(dailyLogs.length);
-            setDailyDuration(dailyLogs.reduce((sum: number, log: any) => sum + (log.duration_minutes || 0), 0));
-            setDailyCaloriesBurned(dailyLogs.reduce((sum: number, log: any) => sum + (log.calories_burned || 0), 0));
+        const weekDates = getWeekDates(selectedDate);
+        const headers = { Authorization: `Bearer ${token}` };
 
-            const selectedD = new Date(selectedDate);
-            const day = selectedD.getDay();
-            const diffToMonday = day === 0 ? 6 : day - 1;
-            const weekStart = new Date(selectedD);
-            weekStart.setDate(selectedD.getDate() - diffToMonday);
-            weekStart.setHours(0, 0, 0, 0);
-
-            const weekEnd = new Date(weekStart);
-            weekEnd.setDate(weekStart.getDate() + 6);
-            weekEnd.setHours(23, 59, 59, 999);
-
-            const byDay = new Array(7).fill(0);
-            logs.forEach((log: any) => {
-              const logDate = new Date(log.date || "");
-              if (logDate >= weekStart && logDate <= weekEnd) {
-                const jsDay = logDate.getDay();
-                const index = jsDay === 0 ? 6 : jsDay - 1;
-                byDay[index] += Number(log.calories_burned) || 0;
+        const [logs, weekMeals] = await Promise.all([
+          getMyWorkoutLogs(),
+          Promise.all(
+            weekDates.map(async (date) => {
+              try {
+                const mealRes = await fetch(`${BASE_URL}/api/meal-plans/${date}`, { headers });
+                if (!mealRes.ok) return { date, total_calories: 0 };
+                const mealData = await mealRes.json();
+                return { date, total_calories: Number(mealData.total_calories) || 0 };
+              } catch {
+                return { date, total_calories: 0 };
               }
-            });
-            setWeeklyCaloriesByDay(byDay);
+            }),
+          ),
+        ]);
+
+        const weekDateSet = new Set(weekDates);
+        const burnMap = new Map<string, number>();
+        let selectedWorkouts = 0;
+        let selectedDuration = 0;
+        let selectedBurn = 0;
+
+        if (Array.isArray(logs)) {
+          logs.forEach((log: any) => {
+            if (!log?.date) return;
+            const parsedDate = new Date(log.date);
+            if (Number.isNaN(parsedDate.getTime())) return;
+            const logDate = getLocalDateString(parsedDate);
+            if (!logDate) return;
+
+            const calories = Number(log.calories_burned) || 0;
+            const duration = Number(log.duration_minutes) || 0;
+
+            if (weekDateSet.has(logDate)) {
+              burnMap.set(logDate, (burnMap.get(logDate) || 0) + calories);
+            }
+            if (logDate === selectedDate) {
+              selectedWorkouts += 1;
+              selectedDuration += duration;
+              selectedBurn += calories;
+            }
+          });
         }
+
+        const weekCaloriesBurn = weekDates.map((date) => Math.round(burnMap.get(date) || 0));
+        const inMap = new Map(weekMeals.map((item) => [item.date, Math.round(item.total_calories)]));
+        const weekCaloriesIn = weekDates.map((date) => inMap.get(date) || 0);
+
+        setDailyWorkoutsCompleted(selectedWorkouts);
+        setDailyDuration(Math.round(selectedDuration));
+        setDailyCaloriesBurned(Math.round(selectedBurn));
+        setDailyCaloriesIn(inMap.get(selectedDate) || 0);
+        setWeeklyCaloriesBurnByDay(weekCaloriesBurn);
+        setWeeklyCaloriesInByDay(weekCaloriesIn);
       } catch (error) { console.error(error); }
     };
     loadDailyData();
@@ -138,7 +180,7 @@ const OverviewPage = () => {
         const token = localStorage.getItem('token');
 
         // 1. GỌI API ĐỂ UPDATE PROFILE GLOBAL
-        const profileRes = await fetch('https://healthmate-y9vt.onrender.com/api/users/profile', {
+        const profileRes = await fetch(`${BASE_URL}/api/users/profile`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ profile: { weight_kg: weight, height_cm: height } })
@@ -164,7 +206,7 @@ const OverviewPage = () => {
         });
 
         // 3. Phân tích AI
-        const res = await fetch('https://healthmate-y9vt.onrender.com/api/goals/analyze-progress', {
+        const res = await fetch(`${BASE_URL}/api/goals/analyze-progress`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ oldWeight, currentWeight: weight })
@@ -193,7 +235,8 @@ const OverviewPage = () => {
   };
 
   const selectedDateIndex = new Date(selectedDate).getDay() === 0 ? 6 : new Date(selectedDate).getDay() - 1;
-  const maxWeeklyCalories = Math.max(...weeklyCaloriesByDay, 1);
+  const maxWeeklyBurnCalories = Math.max(...weeklyCaloriesBurnByDay, 1);
+  const maxWeeklyInCalories = Math.max(...weeklyCaloriesInByDay, 1);
 
   return (
     <Layout>
@@ -404,6 +447,40 @@ const OverviewPage = () => {
                     </div>
                   </div>
                 )}
+
+                {entries.length > 0 && (
+                  <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="material-symbols-outlined text-primary text-[20px]">history</span>
+                      <h4 className="text-sm font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+                        Weight & Height History
+                      </h4>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-50 dark:bg-slate-800/60">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Date</th>
+                            <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Weight</th>
+                            <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">Height</th>
+                            <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500">BMI</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {entries.map((entry, idx) => (
+                            <tr key={`history-${entry.date}-${idx}`} className="border-t border-slate-100 dark:border-slate-800">
+                              <td className="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">{entry.date}</td>
+                              <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{entry.weight} kg</td>
+                              <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{entry.height} cm</td>
+                              <td className="px-4 py-3 font-bold text-primary">{entry.bmi.toFixed(1)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
 
             </div>
@@ -413,13 +490,13 @@ const OverviewPage = () => {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
                        <span className="material-symbols-outlined text-primary">bar_chart</span>
-                      Weekly Performance
+                      Weekly Performance (Calories Burned)
                   </h3>
                 </div>
                 <div className="h-48 flex items-end justify-between gap-2 px-2">
-                  {weeklyCaloriesByDay.map((calories, index) => {
+                  {weeklyCaloriesBurnByDay.map((calories, index) => {
                     const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                    const heightPercent = maxWeeklyCalories > 0 ? Math.max(5, Math.round((calories / maxWeeklyCalories) * 100)) : 5;
+                    const heightPercent = maxWeeklyBurnCalories > 0 ? Math.max(5, Math.round((calories / maxWeeklyBurnCalories) * 100)) : 5;
                     const tooltip = `${dayLabels[index]}: ${Math.round(calories).toLocaleString()} kcal`;
                     const isSelectedDay = index === selectedDateIndex;
                     
@@ -434,6 +511,42 @@ const OverviewPage = () => {
                 <div className="flex justify-between mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
                   {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => (
                     <span key={`${label}-${index}`} className={index === selectedDateIndex ? 'text-primary' : ''}>
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span className="material-symbols-outlined text-cyan-500">restaurant</span>
+                    Weekly Calories In
+                  </h3>
+                </div>
+                <div className="h-48 flex items-end justify-between gap-2 px-2">
+                  {weeklyCaloriesInByDay.map((calories, index) => {
+                    const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                    const heightPercent = maxWeeklyInCalories > 0 ? Math.max(5, Math.round((calories / maxWeeklyInCalories) * 100)) : 5;
+                    const tooltip = `${dayLabels[index]}: ${Math.round(calories).toLocaleString()} kcal`;
+                    const isSelectedDay = index === selectedDateIndex;
+
+                    return (
+                      <div
+                        key={`in-${dayLabels[index]}`}
+                        className={`w-full ${isSelectedDay ? 'bg-cyan-500' : 'bg-cyan-200 dark:bg-cyan-800/40 hover:bg-cyan-300 dark:hover:bg-cyan-700/60'} rounded-t-lg group relative cursor-pointer transition-colors`}
+                        style={{ height: `${heightPercent}%` }}
+                      >
+                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
+                          {tooltip}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => (
+                    <span key={`in-${label}-${index}`} className={index === selectedDateIndex ? 'text-cyan-500' : ''}>
                       {label}
                     </span>
                   ))}

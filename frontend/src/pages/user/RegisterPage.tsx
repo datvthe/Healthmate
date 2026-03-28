@@ -71,10 +71,10 @@ const RegisterPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 font-display text-slate-900 dark:text-slate-100">
       <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-8 sm:p-10">
         <div className="text-center mb-8">
-          <Link to="/homepage" title="Quay về trang chủ" className="inline-flex items-center justify-center size-12 bg-primary/10 text-primary rounded-full mb-4 hover:bg-primary/20 transition-colors">
+          <Link to="/homepage" title="Back to homepage" className="inline-flex items-center justify-center size-12 bg-primary/10 text-primary rounded-full mb-4 hover:bg-primary/20 transition-colors">
             <span className="material-symbols-outlined text-3xl">exercise</span>
           </Link>
-          <h1 className="text-2xl font-bold mb-2">Tạo tài khoản</h1>
+          <h1 className="text-2xl font-bold mb-2">Create Account</h1>
           <p className="text-sm text-slate-500">Gia nhập HealthMate ngay hôm nay</p>
         </div>
 

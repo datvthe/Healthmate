@@ -1,27 +1,55 @@
-const API_URL = "https://healthmate-y9vt.onrender.com/api/workouts";
-const USER_WORKOUT_API = "https://healthmate-y9vt.onrender.com/api/user/user-workouts";
-const WORKOUT_LOG_API = "https://healthmate-y9vt.onrender.com/api/workout-logs";
-const USER_API = "https://healthmate-y9vt.onrender.com/api/users";
+const BASE_URL =
+  (import.meta.env.DEV
+    ? import.meta.env.VITE_API_URL_DEV || "http://localhost:8000"
+    : import.meta.env.VITE_API_URL || "https://healthmate-y9vt.onrender.com");
+
+const API_URL = `${BASE_URL}/api/workouts`;
+const USER_WORKOUT_API = `${BASE_URL}/api/user/user-workouts`;
+const WORKOUT_LOG_API = `${BASE_URL}/api/workout-logs`;
+const USER_API = `${BASE_URL}/api/users`;
 //////////////////////////////////////////////////////////////
 // TYPES
 //////////////////////////////////////////////////////////////
 
+export interface WorkoutExercise {
+  title: string;
+  video_url: string;
+  duration_sec: number;
+  order?: number;
+}
+
+export interface WorkoutProgramDay {
+  day_number: number;
+  day_title: string;
+  exercises: WorkoutExercise[];
+}
+
 export interface Workout {
   _id: string;
   title: string;
+  name?: string;
   level: string;
+  access_tier?: "free" | "premium";
+  is_locked?: boolean;
   calories_burned: number;
+  duration?: number;
+  estimatedCalories?: number;
   description: string;
   cover_image?: string;
-  exercises?: {
-    title: string;
-    video_url: string;
-    duration_sec: number;
-  }[];
+  exercises?: WorkoutExercise[];
+  program_days?: WorkoutProgramDay[];
   category_id: {
     _id: string;
     name: string;
-  };
+  } | string;
+}
+
+export interface WorkoutFilterParams {
+  category?: string;
+  categoryId?: string;
+  level?: string;
+  search?: string;
+  accessTier?: "free" | "premium";
 }
 
 //////////////////////////////////////////////////////////////
@@ -29,15 +57,31 @@ export interface Workout {
 //////////////////////////////////////////////////////////////
 
 export const getWorkouts = async (
-  category?: string,
-  level?: string,
-  search?: string
+  paramsOrCategory?: WorkoutFilterParams | string,
+  levelArg?: string,
+  searchArg?: string,
 ): Promise<Workout[]> => {
-  let query = [];
+  const query: string[] = [];
+  let category = "";
+  let level = "";
+  let search = "";
 
-  if (category) query.push(`category=${category}`);
-  if (level) query.push(`level=${level}`);
-  if (search) query.push(`search=${search}`);
+  if (typeof paramsOrCategory === "object" && paramsOrCategory !== null) {
+    category = paramsOrCategory.categoryId || paramsOrCategory.category || "";
+    level = paramsOrCategory.level || "";
+    search = paramsOrCategory.search || "";
+    if (paramsOrCategory.accessTier) {
+      query.push(`access_tier=${encodeURIComponent(paramsOrCategory.accessTier)}`);
+    }
+  } else {
+    category = paramsOrCategory || "";
+    level = levelArg || "";
+    search = searchArg || "";
+  }
+
+  if (category) query.push(`category=${encodeURIComponent(category)}`);
+  if (level) query.push(`level=${encodeURIComponent(level)}`);
+  if (search) query.push(`search=${encodeURIComponent(search)}`);
 
   const res = await fetch(`${API_URL}?${query.join("&")}`);
   return res.json();
@@ -252,7 +296,7 @@ export const getAIWorkoutRecommend = async (
 ) => {
   const token = localStorage.getItem("token");
 
-  const res = await fetch("https://healthmate-y9vt.onrender.com/api/ai/recommend", {
+  const res = await fetch(`${BASE_URL}/api/ai/recommend`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

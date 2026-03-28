@@ -19,13 +19,13 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
 
   // ĐÃ THÊM WORKOUTS VÀO MENU
   const adminMenus = [
-    { path: '/admin/dashboard', icon: 'dashboard', label: 'Tổng quan' },
-    { path: '/admin/users', icon: 'manage_accounts', label: 'Quản lý Người dùng' },
-    { path: '/admin/posts', icon: 'dynamic_feed', label: 'Quản lý Bài viết' },
-    { path: '/admin/groups', icon: 'diversity_3', label: 'Quản lý Hội nhóm' },
-    { path: '/admin/challenges', icon: 'emoji_events', label: 'Quản lý Thử thách' },
-    { path: '/admin/workouts', icon: 'fitness_center', label: 'Quản lý Workouts' }, // <-- MỚI THÊM
-    { path: '/admin/foods', icon: 'restaurant_menu', label: 'Quản lý Món ăn' },
+    { path: '/admin/dashboard', icon: 'dashboard', label: 'Overview' },
+    { path: '/admin/users', icon: 'manage_accounts', label: 'User Management' },
+    { path: '/admin/posts', icon: 'dynamic_feed', label: 'Post Management' },
+    { path: '/admin/groups', icon: 'diversity_3', label: 'Group Management' },
+    { path: '/admin/challenges', icon: 'emoji_events', label: 'Challenge Management' },
+    { path: '/admin/workouts', icon: 'fitness_center', label: 'Workout Management' }, // <-- MỚI THÊM
+    { path: '/admin/foods', icon: 'restaurant_menu', label: 'Food Management' },
   ];
 
   return (
@@ -73,7 +73,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 <p className="text-[10px] font-bold text-slate-400 uppercase">System Admin</p>
               </div>
             </div>
-            <button onClick={handleLogout} title="Đăng xuất" className="text-red-500 hover:text-red-700 transition-colors shrink-0">
+            <button onClick={handleLogout} title="Log out" className="text-red-500 hover:text-red-700 transition-colors shrink-0">
               <span className="material-symbols-outlined text-[20px]">logout</span>
             </button>
           </div>

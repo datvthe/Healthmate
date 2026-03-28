@@ -49,11 +49,11 @@ const ChallengeManagement = () => {
       <div className="max-w-6xl mx-auto w-full pb-10">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
             <div>
-                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-1">Quản lý Thử thách</h1>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Quản lý các sự kiện thử thách do người dùng tạo ra.</p>
+                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-1">Challenge Management</h1>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Manage challenge events created by users.</p>
             </div>
             <button onClick={fetchChallenges} className="flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
-                <span className="material-symbols-outlined text-[18px]">refresh</span> Làm mới
+                <span className="material-symbols-outlined text-[18px]">refresh</span> Refresh
             </button>
         </div>
 
@@ -62,24 +62,24 @@ const ChallengeManagement = () => {
                 <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-black text-slate-500 dark:text-slate-400">
                         <tr>
-                            <th className="p-4">Tên Thử thách</th>
-                            <th className="p-4">Mục tiêu</th>
-                            <th className="p-4">Trạng thái</th>
-                            <th className="p-4">Người tham gia</th>
-                            <th className="p-4 text-right">Thao tác</th>
+                            <th className="p-4">Challenge Name</th>
+                            <th className="p-4">Goal</th>
+                            <th className="p-4">Status</th>
+                            <th className="p-4">Participants</th>
+                            <th className="p-4 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 text-sm">
                         {loading ? (
-                            <tr><td colSpan={5} className="p-10 text-center text-slate-500 font-medium animate-pulse">Đang tải dữ liệu...</td></tr>
+                            <tr><td colSpan={5} className="p-10 text-center text-slate-500 font-medium animate-pulse">Loading data...</td></tr>
                         ) : challenges.length === 0 ? (
-                            <tr><td colSpan={5} className="p-10 text-center text-slate-500 font-medium">Chưa có thử thách nào.</td></tr>
+                            <tr><td colSpan={5} className="p-10 text-center text-slate-500 font-medium">No challenges yet.</td></tr>
                         ) : (
                             challenges.map(c => (
                                 <tr key={c._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
                                     <td className="p-4">
                                         <p className="font-bold text-slate-900 dark:text-white mb-0.5">{c.title}</p>
-                                        <p className="text-[10px] text-slate-500">Bởi: {c.creator?.profile?.full_name || 'Admin'}</p>
+                                        <p className="text-[10px] text-slate-500">By: {c.creator?.profile?.full_name || 'Admin'}</p>
                                     </td>
                                     <td className="p-4 font-black text-primary">
                                         {c.target} <span className="text-xs font-bold text-slate-500">{c.metric}</span>

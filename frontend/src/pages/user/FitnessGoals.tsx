@@ -237,7 +237,7 @@ const FitnessGoal = () => {
       } else if (logs.length === 1) {
           setDailyAlert({
               isOpen: true, title: 'Hành trình bắt đầu! 🚀',
-              message: 'Tuyệt vời! Bạn đã có những check-in đầu tiên. Cứ duy trì kỉ luật mỗi ngày nhé, tôi sẽ luôn theo dõi và nhắc nhở bạn.',
+              message: 'Awesome! Bạn đã có những check-in đầu tiên. Cứ duy trì kỉ luật mỗi ngày nhé, tôi sẽ luôn theo dõi và nhắc nhở bạn.',
               type: 'good'
           });
           localStorage.setItem('lastFitnessAlertDate', today);
@@ -551,7 +551,7 @@ const FitnessGoal = () => {
                     <Icon name="auto_awesome" className="text-4xl" />
                 </div>
                 <div>
-                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-1 tracking-tight">Lộ trình đề xuất từ AI Coach</h2>
+                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-1 tracking-tight">AI Coach Recommended Roadmap</h2>
                     <p className="text-slate-500 dark:text-slate-400 text-sm">Được cá nhân hóa dựa trên hồ sơ Onboarding của bạn</p>
                 </div>
             </div>
@@ -607,7 +607,7 @@ const FitnessGoal = () => {
                 <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-700 p-10 rounded-3xl max-w-md text-center shadow-2xl animate-fade-in relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl"></div>
                     <span className="material-symbols-outlined text-6xl text-amber-500 mb-4 relative z-10">workspace_premium</span>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-3 relative z-10">Tính năng dành cho Pro</h2>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-3 relative z-10">Pro Features</h2>
                     <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 leading-relaxed relative z-10">
                         Lộ trình Mục tiêu cá nhân hóa do AI phân tích yêu cầu gói HealthMate Pro. Nâng cấp để mở khóa toàn bộ quyền năng.
                     </p>
@@ -626,7 +626,7 @@ const FitnessGoal = () => {
           <div className="mb-8 flex justify-between items-center flex-wrap gap-4">
             <div>
               <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Fitness Goals</h1>
-              <p className="text-slate-500 dark:text-slate-400 mt-1">Theo dõi tiến độ, cập nhật thể trạng và chinh phục mục tiêu của bạn.</p>
+              <p className="text-slate-500 dark:text-slate-400 mt-1">Track progress, update body metrics, and achieve your goals.</p>
             </div>
             
             <div className="flex items-center gap-3">
@@ -644,11 +644,11 @@ const FitnessGoal = () => {
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
             <div className="flex flex-col gap-6">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Thông tin Hành trình</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Journey Information</h2>
               <section className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm relative">
                 {isEditingGoal ? (
                   <div className="animate-fade-in">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Tùy chỉnh lộ trình của bạn</h3>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Customize Your Roadmap</h3>
                     {!goal && (
                       <div className="bg-primary/10 border border-primary/20 p-4 rounded-xl mb-6 flex items-start gap-3">
                           <Icon name="auto_fix_high" className="text-primary mt-0.5" />
@@ -755,7 +755,7 @@ const FitnessGoal = () => {
               {/* WEEKLY ACTION PLAN */}
               {!isEditingGoal && (
                 <section className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Lịch trình chi tiết (Action Plan)</h3>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Detailed Schedule (Action Plan)</h3>
                   
                   <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
                     {Array.from({ length: totalDurationWeeks }).map((_, i) => {
@@ -775,7 +775,7 @@ const FitnessGoal = () => {
                       return (
                         <div key={weekNum} className={`border rounded-xl overflow-hidden transition-colors duration-300 ${isExpanded ? 'border-primary/40 bg-slate-50/50 dark:bg-slate-800/30 shadow-sm' : 'border-slate-200 dark:border-slate-700'}`}>
                           <button onClick={() => setExpandedWeek(isExpanded ? 0 : weekNum)} className="w-full flex justify-between items-center p-3.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 transition-colors">
-                            <span className="font-bold text-sm text-slate-900 dark:text-white">Tuần {weekNum}</span>
+                            <span className="font-bold text-sm text-slate-900 dark:text-white">Week {weekNum}</span>
                             <div className="flex items-center gap-3">
                                 {isCheckedIn && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">Đã check-in</span>}
                                 {weekTasks.length > 0 && <span className="text-xs font-bold text-slate-500 bg-white dark:bg-slate-700 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-600">{weekDone}/{weekTasks.length} Xong</span>}
@@ -845,10 +845,10 @@ const FitnessGoal = () => {
 
             {/* ─── CỘT PHẢI: ROADMAP TIMELINE & TRACKING CHART ─── */}
             <div className="flex flex-col gap-6">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Phân tích & Biểu đồ</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Analytics & Charts</h2>
               {!isEditingGoal && (
                 <section className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
-                   <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Biểu đồ Cân nặng</h3>
+                   <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Weight Chart</h3>
                    {hasLogs ? (
                        <div className="w-full h-48 mt-6 relative pb-6 pl-6">
                            <div className="absolute inset-0 border-b-2 border-l-2 border-slate-200 dark:border-slate-700 ml-6 mb-6"></div>
@@ -895,7 +895,7 @@ const FitnessGoal = () => {
                 <div className="flex items-center justify-between mb-8 relative z-10">
                   <div className="flex items-center gap-2">
                       <Icon name="timeline" className="text-primary" />
-                      <h2 className="text-lg font-bold">Các Giai Đoạn (Phases)</h2>
+                      <h2 className="text-lg font-bold">Phases</h2>
                   </div>
                   <span className="text-xl font-black text-primary">{overallProgress}%</span>
                 </div>
@@ -920,7 +920,7 @@ const FitnessGoal = () => {
                         <div className="pb-2">
                             <div className="flex justify-between items-center mb-1">
                                 <p className={`text-[10px] uppercase tracking-wider font-bold flex items-center gap-1 ${colorClass}`}>
-                                Giai đoạn {index + 1} {isCompleted && <Icon name="check_circle" className="text-[12px]" />}
+                                Phase {index + 1} {isCompleted && <Icon name="check_circle" className="text-[12px]" />}
                                 </p>
                                 {prog > 0 && !isCompleted && <span className="text-[10px] font-bold text-primary">{prog}%</span>}
                             </div>
@@ -1004,7 +1004,7 @@ const FitnessGoal = () => {
         <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4 animate-fade-in">
             <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
                 <div className="p-6">
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2 text-center">Check-in Thể Trạng</h3>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2 text-center">Body Check-in</h3>
                     <p className="text-sm text-slate-500 text-center mb-6">Cập nhật số đo hôm nay để AI theo dõi sát sao!</p>
                     <div className="space-y-4">
                         <div>
@@ -1038,7 +1038,7 @@ const FitnessGoal = () => {
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border border-slate-200 dark:border-slate-800 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full -mr-16 -mb-16 blur-3xl pointer-events-none" />
                 <div className="text-6xl mb-4 animate-bounce relative z-10">🎉</div>
-                <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2 relative z-10">Tuyệt vời!</h2>
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2 relative z-10">Awesome!</h2>
                 <p className="text-slate-500 dark:text-slate-400 mb-6 leading-relaxed relative z-10">
                     Bạn đã chính thức đạt được mục tiêu <span className="font-black text-primary">{goal?.goal_type === 'fat_loss' || goal?.goal_type === 'muscle_gain' ? `${targetWeight}kg` : 'của mình'}</span>. Sự kiên trì của bạn đã được đền đáp xứng đáng! 🏆
                 </p>
@@ -1065,7 +1065,7 @@ const FitnessGoal = () => {
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto shadow-2xl">
             <div className="sticky top-0 bg-white dark:bg-slate-900 p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center z-10">
               <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <Icon name="map" className="text-primary"/> Lộ trình chi tiết {totalDurationWeeks} Tuần
+                <Icon name="map" className="text-primary"/> Detailed Roadmap {totalDurationWeeks} Weeks
               </h2>
               <button onClick={() => setShowRoadmapDetail(false)} className="text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-full transition-colors"><Icon name="close" /></button>
             </div>
@@ -1088,8 +1088,8 @@ const FitnessGoal = () => {
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-slate-900 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold text-sm shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm z-10">{week}</div>
                     <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm group-hover:border-primary/30 transition-colors relative z-10">
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">Tuần {week}</h4>
-                        <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">Giai đoạn {phaseIndex}</span>
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">Week {week}</h4>
+                        <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">Phase {phaseIndex}</span>
                       </div>
                       <div className="text-xs text-slate-600 dark:text-slate-400 space-y-1 mt-2">
                         {weekTasks.length > 0 ? weekTasks.map((t, idx) => {

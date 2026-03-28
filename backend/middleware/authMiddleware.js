@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { syncExpiredSubscription, toClientSubscription } = require("../utils/subscriptionUtils");
 
 // Middleware bảo vệ route: yêu cầu người dùng gửi kèm JWT hợp lệ
 const protect = async (req, res, next) => {
@@ -20,14 +21,20 @@ const protect = async (req, res, next) => {
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Lấy role từ DB để enforce authorization
-      const user = await User.findById(decoded.id).select('role');
+      // Lấy user từ DB để enforce authorization + subscription state
+      const user = await User.findById(decoded.id).select('role profile subscription');
       if (!user) {
         return res.status(401).json({ message: 'User không tồn tại.' });
       }
+      await syncExpiredSubscription(user);
 
-      // Lưu id và role vào req để controller sử dụng
-      req.user = { id: decoded.id, role: user.role };
+      // Lưu context user vào req để controller sử dụng
+      req.user = {
+        id: decoded.id,
+        role: user.role,
+        profile: user.profile,
+        subscription: toClientSubscription(user),
+      };
 
       return next();
     } catch (error) {
