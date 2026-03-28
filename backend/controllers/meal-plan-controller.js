@@ -10,7 +10,6 @@ const recalculateTotalCalories = (items) => {
   return items.reduce((total, item) => total + (item.calories || 0), 0);
 };
 
-// Hàm kiểm tra ngày quá khứ để khóa chức năng
 const checkIsPastDate = (dateStr) => {
     if (!dateStr) return false;
     const today = new Date();
@@ -45,7 +44,6 @@ const getMealPlanByDate = async (req, res) => {
 
 const addFoodToMealPlan = async (req, res) => {
   try {
-    // Tương thích cả params và body
     const date = req.params.date || req.body.date;
     const { food_id, quantity, slot } = req.body;
 
@@ -69,7 +67,6 @@ const addFoodToMealPlan = async (req, res) => {
   }
 };
 
-// 🔴 ĐÃ BỔ SUNG LẠI HÀM UPDATE NÀY ĐỂ FIX CRASH LỖI ROUTE.PUT 
 const updateMealItem = async (req, res) => {
   try {
     const date = req.params.date || req.body.date;
@@ -86,7 +83,6 @@ const updateMealItem = async (req, res) => {
     const itemIndex = mealPlan.items.findIndex(i => i._id.toString() === item_id);
     if (itemIndex === -1) return res.status(404).json({ message: "Không tìm thấy món ăn" });
 
-    // Cập nhật số lượng và tính lại Calo
     const calPerGram = mealPlan.items[itemIndex].calories / mealPlan.items[itemIndex].quantity;
     mealPlan.items[itemIndex].quantity = quantity;
     mealPlan.items[itemIndex].calories = Math.round(calPerGram * quantity);
@@ -95,7 +91,7 @@ const updateMealItem = async (req, res) => {
     await mealPlan.save();
     res.json(mealPlan);
   } catch (error) {
-    res.status(error.status || 500).json({ message: "Lỗi khi cập nhật món ăn", error: error.message });
+    res.status(error.status || 500).json({ message: "Lỗi cập nhật món ăn", error: error.message });
   }
 };
 
@@ -115,7 +111,7 @@ const removeFoodFromMealPlan = async (req, res) => {
     await mealPlan.save();
     res.json(mealPlan);
   } catch (error) {
-    res.status(error.status || 500).json({ message: "Lỗi khi xóa món ăn", error: error.message });
+    res.status(error.status || 500).json({ message: "Lỗi xóa món ăn", error: error.message });
   }
 };
 
@@ -124,6 +120,7 @@ const checkIsPro = (user) => {
     return user.subscription.plan === 'pro' && new Date(user.subscription.endDate) > new Date();
 };
 
+// 🔴 API ĐẦU BẾP AI (ĐÃ FIX PROMPT VÀ LỖI JSON)
 const generateAIPlan = async (req, res) => {
     try {
         const { date } = req.body;
@@ -132,20 +129,42 @@ const generateAIPlan = async (req, res) => {
         const user = await User.findById(req.user.id);
         if (!checkIsPro(user)) return res.status(403).json({ message: "Tính năng này chỉ dành cho gói Pro." });
 
-        const foods = await Food.find().limit(50);
+        const foods = await Food.find().limit(60);
         if (foods.length === 0) return res.status(400).json({ message: "Thư viện món ăn rỗng." });
 
-        const prompt = `Tạo thực đơn 1 ngày (khoảng 2000 kcal). Chọn món ăn TỪ DANH SÁCH SAU (bắt buộc dùng _id và tên chính xác):
+        const prompt = `Bạn là chuyên gia dinh dưỡng. Hãy tạo thực đơn 1 ngày (khoảng 2000 kcal).
+        BẮT BUỘC CHỈ CHỌN các món ăn trong danh sách sau (giữ đúng _id và name):
         ${JSON.stringify(foods.map(f => ({_id: f._id, name: f.name, cal: f.calories})))}
-        Trả về ĐÚNG định dạng JSON array: [{"_id":"...","name":"...","calories":...,"category":"...","quantity":100}].`;
+
+        Trả về ĐÚNG định dạng JSON object, tuyệt đối không có \`\`\`json ở đầu/cuối:
+        {
+          "suggestions": [{"_id":"...","name":"...","calories":...,"quantity":100}],
+          "breakfast": [{"_id":"...","name":"...","calories":...,"quantity":100,"reason":"..."}],
+          "lunch": [{"_id":"...","name":"...","calories":...,"quantity":100,"reason":"..."}],
+          "dinner": [{"_id":"...","name":"...","calories":...,"quantity":100,"reason":"..."}],
+          "snack": [{"_id":"...","name":"...","calories":...,"quantity":100,"reason":"..."}]
+        }`;
 
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const resultAI = await model.generateContent(prompt);
+        
+        // 🔴 XỬ LÝ LỖI TRÍCH XUẤT JSON AN TOÀN
         let text = resultAI.response.text();
-        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-
-        const suggestions = JSON.parse(text);
-        res.json({ message: "AI đã tạo xong", suggestions });
+        text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+        
+        let suggestions = {};
+        try {
+            suggestions = JSON.parse(text);
+        } catch (e) {
+            const start = text.indexOf('{');
+            const end = text.lastIndexOf('}');
+            if (start !== -1 && end !== -1) {
+                suggestions = JSON.parse(text.substring(start, end + 1));
+            } else {
+                throw new Error("AI trả về sai định dạng JSON.");
+            }
+        }
+        res.json(suggestions);
     } catch (error) {
         res.status(500).json({ message: "Lỗi tạo AI menu", error: error.message });
     }
@@ -167,15 +186,7 @@ const analyzeCaloriesLimit = async (req, res) => {
     } catch (error) { res.status(500).json({ message: "Lỗi AI", error: error.message }); }
 };
 
-// Xuất khẩu các function (Bao gồm cả các Alias để chống lỗi tên hàm)
 module.exports = {
-  getMealPlanByDate,
-  addFoodToMealPlan,
-  removeFoodFromMealPlan,
-  generateAIPlan,
-  analyzeCaloriesLimit,
-  updateMealItem, 
-  updateFoodQuantity: updateMealItem, // Xuất nhiều alias phòng trường hợp route gọi tên khác
-  updateItemQuantity: updateMealItem,
-  updateQuantity: updateMealItem
+  getMealPlanByDate, addFoodToMealPlan, removeFoodFromMealPlan, generateAIPlan, analyzeCaloriesLimit,
+  updateMealItem, updateFoodQuantity: updateMealItem, updateItemQuantity: updateMealItem, updateQuantity: updateMealItem
 };
