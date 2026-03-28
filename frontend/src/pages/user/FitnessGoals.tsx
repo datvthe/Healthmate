@@ -44,14 +44,29 @@ const mapGoalTypeToDisplay = (type: string) => {
   }
 };
 
-const calculateSuggestedGoal = (weight_kg?: number, height_cm?: number) => {
-  if (!weight_kg || !height_cm) return 'muscle_gain'; 
-  const height_m = height_cm / 100;
-  const bmi = weight_kg / (height_m * height_m);
+const calculateSuggestedGoal = (weight_kg?: number, height_cm?: number, goalPref?: string) => {
+  if (!weight_kg || !height_cm) return null;
+  const bmi = Number(weight_kg) / ((Number(height_cm) / 100) ** 2);
+  let suggestion = '';
+  let type = goalPref;
   
-  if (bmi >= 25) return 'fat_loss'; 
-  if (bmi < 18.5) return 'muscle_gain'; 
-  return 'maintain'; 
+  if (!type || type === '') {
+      if (bmi < 18.5) {
+          suggestion = 'Bạn đang hơi gầy, nên tập trung vào mục tiêu Tăng cơ/Tăng cân.';
+          type = 'muscle_gain';
+      } else if (bmi >= 25) {
+          suggestion = 'BMI của bạn khá cao, nên ưu tiên mục tiêu Giảm mỡ.';
+          type = 'fat_loss';
+      } else {
+          suggestion = 'BMI của bạn rất lý tưởng! Hãy tập trung Duy trì vóc dáng và Tăng sức bền.';
+          type = 'maintain';
+      }
+  } else {
+       if (type === 'muscle_gain') suggestion = 'Dựa trên lựa chọn Tăng cơ (Bulking) từ Onboarding, AI sẽ tập trung vào thặng dư calo và bài tập sức mạnh.';
+       else if (type === 'fat_loss') suggestion = 'Dựa trên lựa chọn Giảm mỡ (Cutting) từ Onboarding, AI sẽ thiết kế lộ trình thâm hụt calo và cardio.';
+       else suggestion = 'Dựa trên lựa chọn Duy trì vóc dáng, AI sẽ cân bằng dinh dưỡng và các bài tập luyện bền vững.';
+  }
+  return { bmi: bmi.toFixed(1), suggestion, type };
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -67,7 +82,14 @@ const FitnessGoal = () => {
   const [loading, setLoading] = useState(true);
   const [loadingAI, setLoadingAI] = useState(false);
   const [expandedWeek, setExpandedWeek] = useState<number>(1);
-  const [showCongrats, setShowCongrats] = useState(false);
+  
+  // New User Onboarding Suggestion State
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [showSuggestionPrompt, setShowSuggestionPrompt] = useState(false);
+
+  // Modal States
+  const [showCongratsModal, setShowCongratsModal] = useState(false);
+  const [isGoalComplete, setIsGoalComplete] = useState(false);
   
   // Edit MicroGoal States
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -86,9 +108,8 @@ const FitnessGoal = () => {
   const [checkinData, setCheckinData] = useState({ weight: '', feeling: 'normal' });
 
   const [isProValid, setIsProValid] = useState(true); 
-  const [suggestedGoalType, setSuggestedGoalType] = useState('muscle_gain');
+  const [suggestedGoalInfo, setSuggestedGoalInfo] = useState<any>(null);
   
-  // Cân nặng đồng bộ toàn cục (lấy từ Profile mới nhất)
   const [currentGlobalWeight, setCurrentGlobalWeight] = useState<number | string>('N/A');
 
   const [formData, setFormData] = useState({
@@ -106,6 +127,8 @@ const FitnessGoal = () => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       const u = JSON.parse(userStr);
+      setUserProfile(u.profile);
+
       if (u.subscription?.plan === 'pro') {
         const end = new Date(u.subscription.endDate);
         if (end >= new Date()) setIsProValid(true);
@@ -114,22 +137,31 @@ const FitnessGoal = () => {
       }
       
       if (u.profile?.weight_kg && u.profile?.height_cm) {
-          const w = u.profile.weight_kg;
-          const h = u.profile.height_cm;
+          const w = Number(u.profile.weight_kg); // Đảm bảo chuyển về Number
+          const h = Number(u.profile.height_cm);
+          const goalPref = u.profile.goal;
           
-          setCurrentGlobalWeight(w); // Cập nhật cân nặng toàn cục lúc load
+          setCurrentGlobalWeight(w); 
 
-          const suggested = calculateSuggestedGoal(w, h);
-          setSuggestedGoalType(suggested);
+          const suggestedInfo = calculateSuggestedGoal(w, h, goalPref);
+          setSuggestedGoalInfo(suggestedInfo);
           
           let targetW = w;
           let targetMetric = 'Khỏe mạnh hơn mỗi ngày';
-          if (suggested === 'fat_loss') { targetW = w - 5; targetMetric = 'Giảm 5cm vòng bụng'; }
-          if (suggested === 'muscle_gain') { targetW = w + 5; targetMetric = 'Nâng Bench Press 50kg'; }
+          
+          // Logic chuẩn xác để tính toán cân nặng
+          if (suggestedInfo?.type === 'fat_loss') { 
+              targetW = Math.max(w - 5, 20); // Giảm mỡ -> Giảm 5kg
+              targetMetric = 'Giảm mỡ, cơ thể săn chắc'; 
+          }
+          if (suggestedInfo?.type === 'muscle_gain') { 
+              targetW = w + 5; // Tăng cơ -> Tăng 5kg
+              targetMetric = 'Tăng cơ, cải thiện sức mạnh'; 
+          }
           
           setFormData(prev => ({ 
               ...prev, 
-              goal_type: suggested,
+              goal_type: suggestedInfo?.type || 'maintain',
               target_weight: targetW.toString(),
               target_health_metric: targetMetric
           }));
@@ -156,6 +188,7 @@ const FitnessGoal = () => {
           fitness_level: goalData.fitness_level || 'beginner'
         });
         setIsEditingGoal(false);
+        setShowSuggestionPrompt(false); // Nếu đã có goal thì ẩn Gợi ý đi
 
         const token = localStorage.getItem("token");
         const res = await fetch(`https://healthmate-y9vt.onrender.com/api/goals/micro/${goalData._id}`, {
@@ -168,10 +201,12 @@ const FitnessGoal = () => {
 
         triggerDailyReview(goalData);
       } else {
-        setIsEditingGoal(true); 
+        setShowSuggestionPrompt(true); // User chưa có Goal -> Hiện bảng Gợi ý
+        setIsEditingGoal(false);       // Chưa ấn tùy chỉnh thì không hiện form Sửa
       }
     } catch (error) { 
-      setIsEditingGoal(true);
+      setShowSuggestionPrompt(true);
+      setIsEditingGoal(false);
     } finally {
       setLoading(false);
     }
@@ -214,6 +249,57 @@ const FitnessGoal = () => {
     getTodayProgress().then(setProgress).catch(console.error);
   }, []);
 
+  const completedTasks = microGoals.filter(g => g.done).length;
+  const totalTasks = microGoals.length || 1;
+  const overallProgress = microGoals.length > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  const storedUserObj = JSON.parse(localStorage.getItem('user') || "{}");
+  const currentWeight = storedUserObj.profile?.weight_kg || goal?.profile?.weight_kg || 0;
+  const startWeight = goal?.profile?.weight_kg || 0;
+  const targetWeight = goal?.target_weight || 0;
+
+  let progressPercent = 0;
+  if (goal?.goal_type === 'maintain' || goal?.goal_type === 'endurance') {
+      progressPercent = overallProgress;
+  } else if (targetWeight !== startWeight && startWeight > 0) {
+      const totalDiff = Math.abs(targetWeight - startWeight);
+      const currentDiff = Math.abs(currentWeight - startWeight);
+      
+      if (goal?.goal_type === 'fat_loss' && currentWeight <= targetWeight) {
+          progressPercent = 100;
+      } else if (goal?.goal_type === 'muscle_gain' && currentWeight >= targetWeight) {
+          progressPercent = 100;
+      } else {
+          if (goal?.goal_type === 'fat_loss' && currentWeight > startWeight) progressPercent = 0;
+          else if (goal?.goal_type === 'muscle_gain' && currentWeight < startWeight) progressPercent = 0;
+          else progressPercent = Math.min(100, Math.max(0, Math.round((currentDiff / totalDiff) * 100)));
+      }
+  } else {
+      progressPercent = overallProgress;
+  }
+
+  useEffect(() => {
+    if (goal && currentWeight > 0) {
+        const isFatLossComplete = goal.goal_type === 'fat_loss' && currentWeight <= targetWeight && targetWeight > 0;
+        const isMuscleGainComplete = goal.goal_type === 'muscle_gain' && currentWeight >= targetWeight && targetWeight > 0;
+        const isTasksComplete = overallProgress === 100 && microGoals.length > 0;
+        
+        const isMaintainEndurance = (goal.goal_type === 'maintain' || goal.goal_type === 'endurance') && isTasksComplete;
+        
+        if (isFatLossComplete || isMuscleGainComplete || isMaintainEndurance || isTasksComplete) {
+            setIsGoalComplete(true);
+            
+            const congratsKey = `congrats_shown_merged_${goal._id}`;
+            if (!localStorage.getItem(congratsKey)) {
+                setShowCongratsModal(true);
+                localStorage.setItem(congratsKey, 'true');
+            }
+        } else {
+            setIsGoalComplete(false);
+        }
+    }
+  }, [goal, currentWeight, targetWeight, overallProgress, microGoals.length]);
+
   const handleGenerateAIRoadmap = async () => {
       if (!formData.title.trim()) return toast.error("Vui lòng nhập tiêu đề hành trình.");
       const duration = Number(formData.duration_weeks);
@@ -243,6 +329,7 @@ const FitnessGoal = () => {
           if(res.ok) {
               toast.success("Đã tạo thành công lộ trình cá nhân hóa!", { id: 'ai' });
               fetchGoalData(); 
+              setShowSuggestionPrompt(false); 
           } else {
               const errData = await res.json();
               toast.error(errData.message || "Lỗi khi tạo AI Roadmap.", { id: 'ai' });
@@ -281,7 +368,7 @@ const FitnessGoal = () => {
   };
 
   const handleCompleteGoalAndReset = () => {
-    setShowCongrats(false);
+    setShowCongratsModal(false);
     setIsEditingGoal(true);
     setGoal(null);
     setMicroGoals([]);
@@ -342,21 +429,19 @@ const FitnessGoal = () => {
       }
       const token = localStorage.getItem("token");
       try {
-          // 1. Cập nhật biểu đồ Goal (Tuần)
           const res = await fetch(`https://healthmate-y9vt.onrender.com/api/goals/checkin/${goal._id}`, {
               method: "POST",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
               body: JSON.stringify({ week: checkinModal.week, weight: w, feeling: checkinData.feeling })
           });
 
-          // 2. GỌI API ĐỒNG BỘ CÂN NẶNG LÊN DATABASE PROFILE
           const profileRes = await fetch('https://healthmate-y9vt.onrender.com/api/users/profile', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
               body: JSON.stringify({ profile: { weight_kg: w } })
           });
 
-          let currentHeightStr = "170"; // Fallback height
+          let currentHeightStr = "170"; 
           if (profileRes.ok) {
               const updatedData = await profileRes.json();
               const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -366,7 +451,6 @@ const FitnessGoal = () => {
               setCurrentGlobalWeight(w);
           }
 
-          // 3. ĐỒNG BỘ VÀO LỊCH SỬ CỦA TRANG OVERVIEW (bodyCheckinHistory)
           const bmi = w / Math.pow(Number(currentHeightStr) / 100, 2);
           const dateLabel = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
           const newEntry = { date: dateLabel, weight: w, height: Number(currentHeightStr), bmi: Number(bmi.toFixed(1)) };
@@ -377,14 +461,10 @@ const FitnessGoal = () => {
               try { historyArray = JSON.parse(storedHistory); } catch (e) {}
           }
           const todayIndex = historyArray.findIndex((item: any) => item.date === dateLabel);
-          if (todayIndex >= 0) {
-              historyArray[todayIndex] = newEntry; // Ghi đè nếu cùng ngày
-          } else {
-              historyArray.unshift(newEntry); // Thêm mới lên đầu
-          }
+          if (todayIndex >= 0) historyArray[todayIndex] = newEntry; 
+          else historyArray.unshift(newEntry); 
           localStorage.setItem('bodyCheckinHistory', JSON.stringify(historyArray));
 
-          // 4. Hoàn tất UI
           if(res.ok) {
               toast.success(`Đã cập nhật thể trạng thành công!`);
               setCheckinModal({ isOpen: false, week: 1 });
@@ -394,16 +474,6 @@ const FitnessGoal = () => {
           toast.error("Lỗi khi cập nhật");
       }
   };
-
-  const completedTasks = microGoals.filter(g => g.done).length;
-  const totalTasks = microGoals.length || 1;
-  const overallProgress = microGoals.length > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-  useEffect(() => {
-    if (overallProgress === 100 && microGoals.length > 0 && !isEditingGoal) {
-      setShowCongrats(true);
-    }
-  }, [overallProgress, microGoals.length, isEditingGoal]);
 
   const calculatePhaseProgress = (startWeek: number, endWeek: number) => {
       const actualEndWeek = Math.min(endWeek, totalDurationWeeks);
@@ -426,12 +496,19 @@ const FitnessGoal = () => {
       { title: 'Phase 3: Về đích', desc: `Tối ưu hóa kết quả.`, startWeek: chunkSize*2+1, endWeek: totalDurationWeeks, progress: calculatePhaseProgress(chunkSize*2+1, totalDurationWeeks) }
   ];
 
+  let currentPhaseIndex = 1;
+  const phases: Phase[] = goal?.ai_roadmap?.phases || [];
+  if (phases.length > 0 && goal?.current_week) {
+     const pIdx = phases.findIndex(p => goal.current_week >= p.startWeek && goal.current_week <= p.endWeek);
+     if (pIdx !== -1) currentPhaseIndex = pIdx + 1;
+  }
+
+  const currentWeek = goal?.current_week || 1;
+  const hasGoal = !!goal;
+
   const logs = goal?.weekly_log?.sort((a: any, b: any) => a.week - b.week) || [];
   const hasLogs = logs.length > 0;
   
-  // LOGIC ĐỒNG BỘ: Luôn dùng cân nặng hiện tại tuyệt đối nhất
-  const currentWeightDisplay = currentGlobalWeight !== 'N/A' ? currentGlobalWeight : (hasLogs ? logs[logs.length - 1].weight : 'N/A');
-
   let chartPoints = "";
   let targetY = 0;
   const svgWidth = 800;
@@ -459,6 +536,66 @@ const FitnessGoal = () => {
   }
 
   if (loading) return <Layout><div className="p-10 text-center font-bold text-slate-500">Đang tải hành trình...</div></Layout>;
+
+  // 🔴 MÀN HÌNH GỢI Ý MỤC TIÊU DÀNH CHO USER MỚI (TỪ ONBOARDING SANG)
+  if (!loading && !hasGoal && showSuggestionPrompt) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[80vh] w-full font-['Inter'] animate-fade-in px-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 max-w-2xl w-full shadow-2xl relative overflow-hidden">
+            
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+
+            <div className="flex items-center gap-5 mb-8 relative z-10">
+                <div className="w-16 h-16 bg-primary/20 text-primary rounded-2xl flex items-center justify-center shrink-0">
+                    <Icon name="auto_awesome" className="text-4xl" />
+                </div>
+                <div>
+                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-1 tracking-tight">Lộ trình đề xuất từ AI Coach</h2>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">Được cá nhân hóa dựa trên hồ sơ Onboarding của bạn</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-8 relative z-10">
+                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col justify-center">
+                     <p className="text-xs text-slate-500 font-bold uppercase mb-1 flex items-center gap-1"><Icon name="monitor_weight" className="text-[14px]" /> Thể trạng hiện tại</p>
+                     <p className="font-black text-lg text-slate-900 dark:text-white">{userProfile?.weight_kg}kg <span className="text-slate-400 text-sm font-medium">/ {userProfile?.height_cm}cm</span></p>
+                 </div>
+                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col justify-center">
+                     <p className="text-xs text-slate-500 font-bold uppercase mb-1 flex items-center gap-1"><Icon name="flag" className="text-[14px]" /> Mục tiêu ưu tiên</p>
+                     <p className="font-black text-lg text-primary">{mapGoalTypeToDisplay(formData.goal_type)}</p>
+                 </div>
+                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col justify-center">
+                     <p className="text-xs text-slate-500 font-bold uppercase mb-1 flex items-center gap-1"><Icon name="calendar_month" className="text-[14px]" /> Thời gian</p>
+                     <p className="font-black text-lg text-slate-900 dark:text-white">{formData.duration_weeks} Tuần <span className="text-slate-400 text-sm font-medium">({formData.commitment_days_per_week} buổi/tuần)</span></p>
+                 </div>
+                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col justify-center">
+                     <p className="text-xs text-slate-500 font-bold uppercase mb-1 flex items-center gap-1"><Icon name="ads_click" className="text-[14px]" /> Cân nặng hướng tới</p>
+                     <p className="font-black text-lg text-slate-900 dark:text-white">{formData.target_weight}kg</p>
+                 </div>
+            </div>
+
+            {suggestedGoalInfo && (
+               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-xl p-4 mb-8 text-left relative z-10">
+                  <p className="text-sm font-medium text-blue-700 dark:text-blue-300">💡 {suggestedGoalInfo.suggestion}</p>
+               </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 relative z-10 mt-2">
+                <button onClick={handleGenerateAIRoadmap} disabled={loadingAI} className="flex-1 py-4 bg-primary text-slate-900 font-bold rounded-xl hover:brightness-110 active:scale-[0.98] transition-all flex justify-center items-center gap-2 shadow-[0_0_20px_rgba(18,236,91,0.2)]">
+                    {loadingAI ? <span className="material-symbols-outlined animate-spin">progress_activity</span> : <Icon name="rocket_launch" className="text-[20px]" />}
+                    {loadingAI ? 'AI Đang tính toán lộ trình...' : 'Đồng ý & Tạo lộ trình ngay'}
+                </button>
+                {/* Ẩn Suggestion, Bật Edit Form */}
+                <button onClick={() => { setShowSuggestionPrompt(false); setIsEditingGoal(true); }} className="px-6 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                    <Icon name="tune" className="text-[20px]" /> Tùy chỉnh thêm
+                </button>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -517,7 +654,7 @@ const FitnessGoal = () => {
                           <Icon name="auto_fix_high" className="text-primary mt-0.5" />
                           <div>
                               <p className="text-sm font-bold text-primary mb-1">Đã tự động điền gợi ý từ AI</p>
-                              <p className="text-xs text-slate-600 dark:text-slate-300">Dựa vào hồ sơ BMI của bạn, hệ thống khuyến nghị mục tiêu: <b>{mapGoalTypeToDisplay(formData.goal_type)}</b>. Bạn có thể sửa đổi bất kỳ thông số nào bên dưới trước khi tạo.</p>
+                              <p className="text-xs text-slate-600 dark:text-slate-300">Dựa vào hồ sơ cá nhân của bạn, hệ thống khuyến nghị mục tiêu: <b>{mapGoalTypeToDisplay(formData.goal_type)}</b>. Bạn có thể sửa đổi bất kỳ thông số nào bên dưới trước khi tạo.</p>
                           </div>
                       </div>
                     )}
@@ -595,7 +732,7 @@ const FitnessGoal = () => {
                       </div>
                       <div>
                         <p className="text-[11px] text-slate-500 mb-1 font-bold uppercase tracking-wider">Cân nặng C.Tại</p>
-                        <p className="text-slate-900 dark:text-white font-bold text-sm text-primary">{currentWeightDisplay} {currentWeightDisplay !== 'N/A' && 'kg'}</p>
+                        <p className="text-slate-900 dark:text-white font-bold text-sm text-primary">{currentWeight} {currentWeight > 0 && 'kg'}</p>
                       </div>
                       <div>
                         <p className="text-[11px] text-slate-500 mb-1 font-bold uppercase tracking-wider">Mục tiêu cân</p>
@@ -658,7 +795,6 @@ const FitnessGoal = () => {
                                   <div className="flex items-start gap-3 flex-1 min-w-0">
                                       <input type="checkbox" checked={task.done} onChange={() => toggleMicroGoal(task._id, task.done)} className="mt-1 h-5 w-5 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer transition-all shrink-0" />
                                       
-                                      {/* TRẠNG THÁI EDIT HOẶC VIEW CHO TỪNG TASK */}
                                       {isEditing ? (
                                           <div className="flex-1 flex gap-2 w-full">
                                               <input 
@@ -682,7 +818,6 @@ const FitnessGoal = () => {
                                       )}
                                   </div>
 
-                                  {/* ICON SỬA (Hiện khi hover) */}
                                   {!isEditing && (
                                       <button onClick={() => { setEditingTaskId(task._id); setEditTaskLabel(task.label); }} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-primary transition-all p-1 shrink-0">
                                           <Icon name="edit" className="text-[16px]" />
@@ -898,22 +1033,30 @@ const FitnessGoal = () => {
         </div>
       )}
 
-      {showCongrats && (
-        <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center animate-fade-in p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-10 max-w-md mx-4 text-center shadow-2xl relative overflow-hidden w-full border border-primary/20">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full -mr-16 -mb-16 blur-3xl pointer-events-none" />
-            <div className="relative z-10 animate-bounce">
-                <div className="text-6xl mb-4">🎉</div>
+      {showCongratsModal && (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border border-slate-200 dark:border-slate-800 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full -mr-16 -mb-16 blur-3xl pointer-events-none" />
+                <div className="text-6xl mb-4 animate-bounce relative z-10">🎉</div>
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2 relative z-10">Tuyệt vời!</h2>
+                <p className="text-slate-500 dark:text-slate-400 mb-6 leading-relaxed relative z-10">
+                    Bạn đã chính thức đạt được mục tiêu <span className="font-black text-primary">{goal?.goal_type === 'fat_loss' || goal?.goal_type === 'muscle_gain' ? `${targetWeight}kg` : 'của mình'}</span>. Sự kiên trì của bạn đã được đền đáp xứng đáng! 🏆
+                </p>
+                <div className="flex flex-col gap-3 relative z-10">
+                    <button 
+                        onClick={() => { setShowCongratsModal(false); handleCompleteGoalAndReset(); }} 
+                        className="w-full py-3 bg-primary text-slate-900 font-bold rounded-xl hover:brightness-110 transition-all shadow-sm"
+                    >
+                        Lưu trữ & Lập mục tiêu mới
+                    </button>
+                    <button 
+                        onClick={() => setShowCongratsModal(false)} 
+                        className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                    >
+                        Đóng & Xem lại hành trình
+                    </button>
+                </div>
             </div>
-            <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 relative z-10">Chúc mừng bạn!</h2>
-            <p className="text-slate-600 dark:text-slate-400 mb-6 text-sm relative z-10">
-              Bạn đã hoàn thành 100% nhiệm vụ trong mục tiêu <span className="font-bold text-primary">{goal?.title}</span>. Bạn thực sự rất tuyệt vời!
-            </p>
-            <div className="text-5xl mb-8 relative z-10 animate-pulse">🏆</div>
-            <button onClick={handleCompleteGoalAndReset} className="bg-primary text-slate-900 w-full py-3 rounded-xl font-bold hover:brightness-110 transition-all relative z-10 shadow-lg shadow-primary/30">
-              Lưu trữ & Bắt đầu chặng mới
-            </button>
-          </div>
         </div>
       )}
 
